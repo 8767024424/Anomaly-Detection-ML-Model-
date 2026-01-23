@@ -421,6 +421,40 @@ td {
     color: var(--text-primary);
 }
 
+/* Specific Widths for Sensor Health Table (Aligned to 5 Columns) */
+#sensor-table th:nth-child(1),
+#sensor-table td:nth-child(1) {
+    width: 25%;
+}
+
+/* Sensor Name */
+#sensor-table th:nth-child(2),
+#sensor-table td:nth-child(2) {
+    width: 15%;
+}
+
+/* Status */
+#sensor-table th:nth-child(3),
+#sensor-table td:nth-child(3) {
+    width: 15%;
+    text-align: center;
+}
+
+/* Anomaly Count (Value) */
+#sensor-table th:nth-child(4),
+#sensor-table td:nth-child(4) {
+    width: 10%;
+    text-align: center;
+}
+
+/* Risk Level (Count) */
+#sensor-table th:nth-child(5),
+#sensor-table td:nth-child(5) {
+    width: 35%;
+}
+
+/* Interpretation */
+
 .val-up {
     color: var(--status-critical);
     font-weight: bold;
@@ -709,16 +743,23 @@ td {
 
 .dual-card-row {
     display: flex;
+    flex-wrap: wrap;
+    /* Added wrap */
     gap: 16px;
     margin-top: 12px;
 }
 
 .inner-card {
     flex: 1;
+    min-width: 320px;
+    /* Added min-width */
     background: var(--bg-panel);
     border: 1px solid var(--bg-highlight);
     border-radius: 10px;
-    padding: 12px;
+    padding: 16px;
+    /* Increased padding */
+    display: flex;
+    flex-direction: column;
 }
 
 .inner-card h4 {

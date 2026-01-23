@@ -171,10 +171,7 @@
 </style>
 
 <body>
-    <div id="emergency-banner"
-        style="background: #da3633; color: white; padding: 10px; text-align: center; font-weight: bold; font-size: 1.2rem; z-index: 9999; position: relative;">
-        🚀 PROJECT UPDATED: VERSION 3.3 (Vibration: 450)
-    </div>
+
     <div class="app-container">
         <!-- Sidebar Navigation -->
         <nav class="sidebar">
@@ -280,7 +277,8 @@
                             <tr>
                                 <th>Sensor Name</th>
                                 <th>Status</th>
-                                <th>Anomaly Count (Historical)</th>
+                                <th>Sensor Value</th>
+                                <th>Anomaly Count</th>
                                 <th>Clear Interpretation</th>
                             </tr>
                         </thead>
@@ -302,15 +300,6 @@
 
                         <div class="chart-wrapper" style="height: 260px; position: relative;">
                             <!-- Root Cause Badge -->
-                            <div id="root-cause-badge" style="position: absolute; top: 10px; right: 10px;
-                    background: rgba(218, 54, 51, 0.1);
-                    border: 1px solid #da3633;
-                    color: #da3633;
-                    padding: 2px 8px;
-                    border-radius: 4px;
-                    font-size: 0.8rem;">
-                                Root Cause: Vibration
-                            </div>
 
                             <canvas id="anomaly-chart"></canvas>
                         </div>
@@ -561,7 +550,7 @@
             <div style="text-align: center; margin-top: 10px; margin-bottom: 40px;">
                 <button class="btn-primary" id="btn-approve-repair"
                     style="font-size: 1.2rem; padding: 15px 40px; background-color: #238636; border: none; border-radius: 6px; cursor: pointer; color: white; font-weight: 700; box-shadow: 0 4px 12px rgba(35, 134, 54, 0.4);">
-                    Approve Maintenance – ₹25,000
+                    Request for Maintenance Approval – ₹25,000
                 </button>
                 <div style="margin-top: 12px; font-size: 0.9rem; color: #8b949e; font-style: italic;">
                     Decision valid for next 24 hours
@@ -590,7 +579,7 @@
             <!-- CARD 1: SYSTEM FLOW HEALTH -->
             <div class="admin-card">
                 <h3>SYSTEM FLOW HEALTH</h3>
-                <div style="margin-top: 15px; display: flex; flex-direction: column; gap: 0;">
+                <div id="admin-flow-health" style="margin-top: 15px; display: flex; flex-direction: column; gap: 0;">
                     <div class="row-between" style="padding: 12px 0; border-bottom: 1px solid #21262d;">
                         <span class="text-muted">1. Data Source Connected</span>
                         <strong class="text-success">✔ Verified</strong>
@@ -642,7 +631,8 @@
                 <h3>CURRENT SYSTEM ACTIVITY</h3>
                 <div
                     style="background: #0d1117; padding: 20px; border-radius: 6px; border-left: 3px solid #58a6ff; margin-top: 15px; height: 100%; box-sizing: border-box;">
-                    <ul class="text-muted small" style="line-height: 1.8; padding-left: 20px; margin:0;">
+                    <ul id="admin-activity-log" class="text-muted small"
+                        style="line-height: 1.8; padding-left: 20px; margin:0;">
                         <li>Monitoring live data stream for new updates.</li>
                         <li>Waiting for next scheduled dataset ingestion.</li>
                         <li>No admin action required at this time.</li>
