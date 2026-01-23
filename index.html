@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Industrial AI Dashboard</title>
+    <link rel="stylesheet" href="styles.css?v=2">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<style>
+    /* FORCED ADMIN STYLES (Cache Bypass) */
+    .admin-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-auto-rows: auto;
+        gap: 24px;
+        width: 100%;
+        align-items: stretch;
+    }
+
+    .admin-card {
+        position: relative;
+        width: 100%;
+        margin: 0;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        min-height: 100%;
+        background: #161b22;
+        /* Ensure background is set as per original card */
+        border: 1px solid #30363d;
+        /* Ensure border is set */
+        border-radius: 6px;
+        /* Ensure radius */
+        padding: 20px;
+        /* Default padding */
+    }
+
+    .admin-card>h3 {
+        margin-bottom: 12px;
+        margin-top: 0;
+        /* Reset top margin */
+        color: #e6edf3;
+        /* Text color */
+    }
+
+    .section-divider {
+        margin-top: 16px;
+        padding-top: 12px;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .admin-card * {
+        max-width: 100%;
+        overflow-wrap: break-word;
+    }
+
+    .admin-right-col {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        height: 100%;
+    }
+
+    .admin-full {
+        grid-column: 1 / -1;
+    }
+
+    /* Component Styles from before */
+    .flow-health-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+    }
+
+    .flow-item {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .flow-item .label {
+        color: #8b949e;
+    }
+
+    .flow-item .status {
+        font-weight: bold;
+        color: #2ea043;
+    }
+
+    .admin-controls-vertical {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        height: 100%;
+    }
+
+    .admin-btn-vertical {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        padding: 15px;
+        background: #0d1117;
+        border: 1px solid #30363d;
+        border-radius: 6px;
+        color: #8b949e;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-align: left;
+    }
+
+    .admin-btn-vertical:hover {
+        background: #161b22;
+        border-color: #58a6ff;
+        color: #c9d1d9;
+    }
+
+    .admin-btn-vertical .icon {
+        font-size: 1.5rem;
+    }
+
+    .admin-btn-vertical .text {
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .trust-indicators-row {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+        width: 100%;
+        margin-top: 0;
+    }
+
+    .trust-card-compact {
+        background: #161b22;
+        padding: 20px;
+        border-radius: 8px;
+        text-align: center;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        height: 100%;
+    }
+
+    .trust-card-compact .label {
+        font-size: 0.8rem;
+        color: #8b949e;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+    }
+
+    .trust-card-compact .value {
+        font-size: 1.4rem;
+        font-weight: bold;
+        color: #fff;
+    }
+
+    .trust-card-compact .value.ok {
+        color: #2ea043;
+    }
+</style>
+
+<body>
+    <div id="emergency-banner"
+        style="background: #da3633; color: white; padding: 10px; text-align: center; font-weight: bold; font-size: 1.2rem; z-index: 9999; position: relative;">
+        🚀 PROJECT UPDATED: VERSION 3.3 (Vibration: 450)
+    </div>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="logo-area">
+                <h2>AURA <span class="accent">INTELLIGENCE</span></h2>
+                <div class="status-dot"></div>
+            </div>
+
+            <div class="user-profile">
+                <div class="avatar">U</div>
+                <div class="user-info">
+                    <span class="user-name">Demo User</span>
+                    <span class="user-role-label">Select Role:</span>
+                </div>
+            </div>
+
+            <div class="role-selector">
+                <button class="role-btn active" data-role="plant-engineer">
+                    <span class="icon">🔧</span> Plant Engineer
+                </button>
+                <button class="role-btn" data-role="plant-head">
+                    <span class="icon">🏭</span> Plant Head
+                </button>
+                <button class="role-btn" data-role="management">
+                    <span class="icon">💼</span> Management
+                </button>
+                <button class="role-btn" data-role="admin">
+                    <span class="icon">🛠️</span> Admin
+                </button>
+            </div>
+
+            <div class="system-status">
+                <h3>System Health</h3>
+                <div class="status-item">Data Stream: <span class="status-ok">Live</span></div>
+                <div class="status-item">ML Model: <span class="status-ok">Active</span></div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-bar">
+                <h1 id="page-title">Maintenance Console <span
+                        style="font-size: 0.8rem; color: #8b949e; margin-left:10px;">v3.3</span></h1>
+                <div class="top-controls">
+                    <span class="live-indicator"><span class="blink">●</span> LIVE MONITORING</span>
+                    <span id="current-time">--:--:--</span>
+                </div>
+            </header>
+
+            <!-- Dynamic View Container -->
+            <div id="dashboard-view" class="view-container">
+                <!-- Content injected by JS -->
+            </div>
+        </main>
+
+        <!-- AICopilot / Chat Interface -->
+        <aside class="copilot-panel">
+            <div class="copilot-header">
+                <h3>AI Assistant</h3>
+            </div>
+            <div class="chat-history" id="chat-history">
+                <div class="msg ai">
+                    Hello. I am monitoring the pump system.
+                </div>
+            </div>
+            <div class="chat-input-area">
+                <input type="text" id="user-input" placeholder="Type a question...">
+                <button id="send-btn">➤</button>
+            </div>
+            <div class="quick-prompts">
+                <button class="chip">Highest anomaly sensor</button>
+                <button class="chip">Sensor health summary</button>
+                <button class="chip">Sensor failure risk</button>
+                <button class="chip">Cost impact</button>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Templates for different views -->
+    <!-- Templates for different views -->
+    <template id="tpl-plant-engineer">
+        <div class="grid-dashboard">
+            <!-- 3. Risk Banner -->
+            <div id="risk-banner" class="card full-width risk-banner"
+                style="display: none; background: #2f1e1e; border-left: 5px solid #da3633;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h3 class="text-critical" style="margin: 0; display: flex; align-items: center; gap: 10px;">
+                            ⚠️ SYSTEM RISK: HIGH
+                        </h3>
+                        <p style="margin: 5px 0 0 0; color: #e6edf3;">
+                            <span id="risk-summary-text">Analyzing...</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card full-width">
+                <h3>A. Sensor Health Table</h3>
+                <div class="table-wrapper">
+                    <table id="sensor-table">
+                        <thead>
+                            <tr>
+                                <th>Sensor Name</th>
+                                <th>Status</th>
+                                <th>Anomaly Count (Historical)</th>
+                                <th>Clear Interpretation</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+            <!-- PARENT CARD -->
+            <div class="card full-width">
+
+                <h3>Historical Sensor Analysis</h3>
+
+                <!-- TWO CARDS ROW -->
+                <div class="dual-card-row">
+
+                    <!-- CARD 1 -->
+                    <div class="inner-card">
+                        <h4>B. Historical Anomaly Distribution</h4>
+
+                        <div class="chart-wrapper" style="height: 260px; position: relative;">
+                            <!-- Root Cause Badge -->
+                            <div id="root-cause-badge" style="position: absolute; top: 10px; right: 10px;
+                    background: rgba(218, 54, 51, 0.1);
+                    border: 1px solid #da3633;
+                    color: #da3633;
+                    padding: 2px 8px;
+                    border-radius: 4px;
+                    font-size: 0.8rem;">
+                                Root Cause: Vibration
+                            </div>
+
+                            <canvas id="anomaly-chart"></canvas>
+                        </div>
+                        <div id="engineer-root-cause" class="text-center small mt-2 fw-bold" style="color: #8b949e;">
+                        </div>
+                    </div>
+
+                    <!-- CARD 2 -->
+                    <div class="inner-card">
+                        <h4>C. Sensor Reliability Score (Historical)</h4>
+
+                        <div class="chart-wrapper" style="height: 260px;">
+                            <canvas id="trend-chart"></canvas>
+                        </div>
+
+                        <div class="text-muted small mt-2"
+                            style="text-align: center; border-top: 1px solid #30363d; padding-top: 6px;">
+                            💡 Observation: High vibration historically correlates with bearing temperature rise.
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+        <div class="card full-width bg-darker">
+            <h3>D. Historical Reliability & Risk Console</h3>
+            <div class="action-panel-content" id="engineer-alerts">
+                <!-- Dynamic Content -->
+            </div>
+            <!-- Dataset Summary -->
+            <div
+                style="margin-top: 10px; padding: 10px; background: #0d1117; border-radius: 6px; font-size: 0.85rem; color: #8b949e;">
+                Dataset: 2000 Records | Duration: ~33.3 hours | Mode: Offline Replay
+            </div>
+        </div>
+        </div>
+    </template>
+
+    <template id="tpl-plant-head">
+        <div class="grid-dashboard">
+            <!-- 1. TOP KPI ROW (Big Cards) -->
+            <div class="grid-2">
+                <div class="card kpi-card status-blue">
+                    <h3 class="text-muted small">TOTAL RECORDS</h3>
+                    <div class="metric-big text-white">2000</div>
+                </div>
+                <div class="card kpi-card status-red">
+                    <h3 class="text-muted small">TOP 3 FAULT SENSORS</h3>
+                    <div id="ph-top-faults" class="text-white"
+                        style="margin-top: 10px; font-size: 1rem; line-height: 1.4;">
+                        <!-- Injected by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- ONE-LINE CONTEXT ROW -->
+            <div
+                style="margin-bottom: 20px; font-size: 1rem; color: #8b949e; background: #151a21; padding: 10px 15px; border-radius: 6px; border-left: 4px solid #d29922;">
+                ℹ️ Current status requires attention within the next 24–36 hours to avoid downtime.
+            </div>
+
+            <!-- 2. RISK UNDERSTANDING (Visuals) -->
+            <div class="card full-width">
+                <div class="grid-2">
+                    <!-- A. Risk Composition -->
+                    <div class="inner-card">
+                        <h4>Overall Risk Composition</h4>
+                        <div
+                            style="display: flex; flex-direction: column; justify-content: center; height: 100%; min-height: 120px;">
+                            <div class="risk-composition-bar">
+                                <div class="risk-normal" style="width: 40%"></div>
+                                <div class="risk-warning" style="width: 35%"></div>
+                                <div class="risk-critical" style="width: 25%"></div>
+                            </div>
+                            <!-- Legend Removed for Clarity -->
+                        </div>
+                    </div>
+
+                    <!-- B. Primary Risk Drivers -->
+                    <div class="inner-card">
+                        <h4>Primary Risk Drivers</h4>
+                        <div id="ph-risk-drivers"
+                            style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+                            <!-- Static Default Content -->
+                            <div class="driver-card high-impact">
+                                <span class="driver-name">🔴 Mechanical Stress – High Impact</span>
+                            </div>
+                            <div class="driver-card medium-impact">
+                                <span class="driver-name">🟠 Thermal Load – Medium Impact</span>
+                            </div>
+                            <div class="driver-card low-impact">
+                                <span class="driver-name">🟢 Process Variability – Low Impact</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2.5. REMAINING USEFUL LIFE (RUL) -->
+            <div class="card rul-card">
+                <h3>Remaining Useful Life (RUL) – Sensors</h3>
+                <div id="rulContainer"></div>
+            </div>
+
+
+            <!-- 3. ACTION RECOMMENDATIONS -->
+            <div class="grid-3" id="recommendation-grid">
+                <div class="recommendation-box critical-border">
+                    <h4 class="text-critical">⚡ Immediate <span
+                            style="font-size: 0.7rem; background: rgba(218,54,51,0.2); border: 1px solid #da3633; padding: 2px 6px; border-radius: 4px; margin-left: 10px;">HIGH
+                            PRIORITY</span></h4>
+                    <ul class="small-list" id="rec-immediate">
+                        <li>Reduce load and inform maintenance lead</li>
+                    </ul>
+                </div>
+                <div class="recommendation-box warning-border">
+                    <h4 class="text-warning">⏱ Next 24 Hours <span
+                            style="font-size: 0.7rem; background: rgba(210,153,34,0.2); border: 1px solid #d29922; padding: 2px 6px; border-radius: 4px; margin-left: 10px;">MEDIUM
+                            PRIORITY</span></h4>
+                    <ul class="small-list" id="rec-shortterm">
+                        <li>Perform focused inspection</li>
+                    </ul>
+                </div>
+                <div class="recommendation-box safe-border">
+                    <h4 class="text-success">🛠 Planned Action <span
+                            style="font-size: 0.7rem; background: rgba(35,134,54,0.2); border: 1px solid #238636; padding: 2px 6px; border-radius: 4px; margin-left: 10px;">LOW
+                            PRIORITY</span></h4>
+                    <ul class="small-list" id="rec-planned">
+                        <li>Prepare controlled shutdown if risk escalates</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- 4. EXECUTIVE SUMMARY -->
+            <div class="card full-width">
+                <div class="executive-summary" id="ph-executive-summary"
+                    style="border-left: 4px solid #da3633; font-size: 1.2rem; font-weight: 600; padding: 15px;">
+                    The system is moving toward a high-risk operating state. Preventive action in the next 24–36 hours
+                    can significantly reduce downtime.
+                </div>
+            </div>
+
+            <!-- DATA FRESHNESS FOOTER -->
+            <div style="text-align: right; color: #484f58; font-size: 0.75rem; margin-top: 10px;">
+                Data last updated: <span id="data-timestamp">Just now</span>
+            </div>
+        </div>
+    </template>
+
+    <template id="tpl-management">
+        <div class="grid-dashboard">
+
+            <!-- 1. TOP KPI ROW (Big Cards) -->
+            <div class="grid-4">
+                <div class="card kpi-card status-red">
+                    <h3 class="text-muted small">💸 MONEY AT RISK</h3>
+                    <div class="metric-big text-critical" id="mgmt-money-risk">₹4.5L</div>
+                    <div class="small text-muted mt-1">If no action taken</div>
+                </div>
+                <div class="card kpi-card status-amber">
+                    <h3 class="text-muted small">⏱️ FAILURE WINDOW</h3>
+                    <div class="metric-big text-warning" id="mgmt-time-failure">24–36h</div>
+                    <div class="small text-muted mt-1">Estimated time to failure</div>
+                </div>
+                <div class="card kpi-card status-green">
+                    <h3 class="text-muted small">🛡️ RISK POST-REPAIR</h3>
+                    <div class="metric-big text-success" id="mgmt-risk-after">Low</div>
+                    <div class="small text-muted mt-1">~80% Risk Reduced</div>
+                </div>
+                <div class="card kpi-card status-blue">
+                    <div class="kpi-icon">✅</div>
+                    <h3 class="text-muted small">DECISION STATUS</h3>
+                    <div class="metric-big text-white" id="mgmt-action-status">Pending</div>
+                    <div class="small text-muted mt-1">Action required</div>
+                </div>
+            </div>
+
+            <!-- ONE-LINE CONTEXT -->
+            <div
+                style="margin-bottom: 20px; font-size: 1rem; color: #8b949e; background: #151a21; padding: 10px 15px; border-radius: 6px; border-left: 4px solid #da3633;">
+                ℹ️ Financial exposure is critical. Immediate maintenance prevents ₹4.5L loss.
+            </div>
+
+            <!-- 2. DECISION & DRIVERS (Split View) -->
+            <div class="card full-width">
+                <div class="grid-2">
+
+                    <!-- LEFT: DECISION COMPARISON -->
+                    <div class="inner-card">
+                        <h4>Decision Comparison</h4>
+                        <div style="display: flex; flex-direction: column; gap: 15px; margin-top: 15px;">
+
+                            <!-- Option A: Approve -->
+                            <div
+                                style="background: rgba(35,134,54,0.1); border-left: 3px solid #238636; padding: 15px; border-radius: 4px;">
+                                <div class="row-between">
+                                    <strong class="text-success">✅ Approve Repair</strong>
+                                    <span class="text-white">₹25,000</span>
+                                </div>
+                                <div class="small text-muted mt-2">
+                                    • Risk reduced to minimal<br>
+                                    • Equipment reliability restored
+                                </div>
+                            </div>
+
+                            <!-- Option B: Delay -->
+                            <div
+                                style="background: rgba(218,54,51,0.1); border-left: 3px solid #da3633; padding: 15px; border-radius: 4px;">
+                                <div class="row-between">
+                                    <strong class="text-critical">❌ Delay Action</strong>
+                                    <span class="text-white">~₹4.5 Lakhs</span>
+                                </div>
+                                <div class="small text-muted mt-2">
+                                    • High failure probability (24-36h)<br>
+                                    • Unplanned downtime impacts production
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- RIGHT: COST DRIVERS (Visual Bars) -->
+                    <div class="inner-card">
+                        <h4>Where the Financial Risk Is Coming From</h4>
+                        <div id="mgmt-cost-drivers"
+                            style="display: flex; flex-direction: column; gap: 12px; margin-top: 15px;">
+                            <!-- DYNAMIC INJECTION TARGET -->
+                        </div>
+                        <div class="small text-muted mt-3">
+                            <i>Fixing top contributors removes >70% of financial risk.</i>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- 3. EXECUTIVE SUMMARY -->
+            <div class="card full-width">
+                <div class="executive-summary" id="mgmt-executive-summary"
+                    style="border-left: 4px solid #da3633; font-size: 1.2rem; font-weight: 600; padding: 15px;">
+                    System shows high failure risk within 24–36 hours. Approving maintenance now avoids major financial
+                    loss.
+                </div>
+            </div>
+
+            <!-- 4. ACTION BUTTON -->
+            <div style="text-align: center; margin-top: 10px; margin-bottom: 40px;">
+                <button class="btn-primary" id="btn-approve-repair"
+                    style="font-size: 1.2rem; padding: 15px 40px; background-color: #238636; border: none; border-radius: 6px; cursor: pointer; color: white; font-weight: 700; box-shadow: 0 4px 12px rgba(35, 134, 54, 0.4);">
+                    Approve Maintenance – ₹25,000
+                </button>
+                <div style="margin-top: 12px; font-size: 0.9rem; color: #8b949e; font-style: italic;">
+                    Decision valid for next 24 hours
+                </div>
+            </div>
+
+            <!-- FOOTER -->
+            <div style="text-align: right; color: #484f58; font-size: 0.75rem;">
+                Data last updated: <span id="data-timestamp-mgmt">Just now</span>
+            </div>
+
+        </div>
+    </template>
+
+    <template id="tpl-admin">
+        <div class="admin-grid">
+
+            <!-- 1. SYSTEM RELIABLE (Full Width Banner) -->
+            <div class="admin-card admin-full" id="admin-assurance-banner"
+                style="background: rgba(35,134,54,0.1); border: 2px solid #238636; border-radius: 8px; padding: 30px; text-align: center;">
+                <h2 class="text-success" style="margin: 0; font-size: 1.8rem;">✅ SYSTEM RELIABLE</h2>
+                <p class="text-muted" style="margin: 10px 0 0 0;">All critical system checks passed. Platform is stable.
+                </p>
+            </div>
+
+            <!-- CARD 1: SYSTEM FLOW HEALTH -->
+            <div class="admin-card">
+                <h3>SYSTEM FLOW HEALTH</h3>
+                <div style="margin-top: 15px; display: flex; flex-direction: column; gap: 0;">
+                    <div class="row-between" style="padding: 12px 0; border-bottom: 1px solid #21262d;">
+                        <span class="text-muted">1. Data Source Connected</span>
+                        <strong class="text-success">✔ Verified</strong>
+                    </div>
+                    <div class="row-between" style="padding: 12px 0; border-bottom: 1px solid #21262d;">
+                        <span class="text-muted">2. Dataset Loaded Successfully</span>
+                        <strong class="text-success">✔ Verified</strong>
+                    </div>
+                    <div class="row-between" style="padding: 12px 0; border-bottom: 1px solid #21262d;">
+                        <span class="text-muted">3. ML Inference Results Available</span>
+                        <strong class="text-success">✔ Verified</strong>
+                    </div>
+                    <div class="row-between" style="padding: 12px 0; border-bottom: 1px solid #21262d;">
+                        <span class="text-muted">4. Anomaly Counts Consistent</span>
+                        <strong class="text-success">✔ Verified</strong>
+                    </div>
+                    <div class="row-between" style="padding: 12px 0;">
+                        <span class="text-muted">5. Dashboard Views In Sync</span>
+                        <strong class="text-success">✔ Verified</strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CARD 2: SYSTEM TRUST INDICATORS -->
+            <div class="admin-card">
+                <h3>SYSTEM TRUST INDICATORS</h3>
+                <div class="trust-indicators-row" style="margin-top: 15px;">
+                    <div class="trust-card-compact">
+                        <div class="label">Last Data Update</div>
+                        <div class="value" id="admin-last-data">Just now</div>
+                    </div>
+                    <div class="trust-card-compact">
+                        <div class="label">Last ML Update</div>
+                        <div class="value" id="admin-last-ml">Just now</div>
+                    </div>
+                    <div class="trust-card-compact">
+                        <div class="label">Data Consistency</div>
+                        <div class="value ok">Verified</div>
+                    </div>
+                    <div class="trust-card-compact">
+                        <div class="label">Sync Status</div>
+                        <div class="value ok">Up to Date</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CARD 3: CURRENT SYSTEM ACTIVITY -->
+            <div class="admin-card">
+                <h3>CURRENT SYSTEM ACTIVITY</h3>
+                <div
+                    style="background: #0d1117; padding: 20px; border-radius: 6px; border-left: 3px solid #58a6ff; margin-top: 15px; height: 100%; box-sizing: border-box;">
+                    <ul class="text-muted small" style="line-height: 1.8; padding-left: 20px; margin:0;">
+                        <li>Monitoring live data stream for new updates.</li>
+                        <li>Waiting for next scheduled dataset ingestion.</li>
+                        <li>No admin action required at this time.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- CARD 4: ADMIN CONTROLS -->
+            <div class="admin-card">
+                <h3>ADMIN CONTROLS</h3>
+                <div class="admin-controls-vertical" style="margin-top: 15px;">
+                    <button id="btn-reload-data" class="admin-btn-vertical">
+                        <span class="icon">🔄</span>
+                        <span class="text">Reload Data</span>
+                    </button>
+                    <button id="btn-refresh-ml" class="admin-btn-vertical">
+                        <span class="icon">🔁</span>
+                        <span class="text">Refresh ML</span>
+                    </button>
+                    <button id="btn-resync-ui" class="admin-btn-vertical">
+                        <span class="icon">📥</span>
+                        <span class="text">Re-Sync UI</span>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </template>
+
+    <!-- Chart.js Library (UMD Build for Direct Browser Use) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="dashboard.js?v=FINAL_SYNC_2026_01_23_1454"></script>
+</body>
+
+</html>
