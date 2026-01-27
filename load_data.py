@@ -1,6 +1,6 @@
 import pandas as pd
 
-DATA_PATH = r"C:\Users\UTG-Windows-User-03\Downloads\pump_sensor_data_2000_anomaly.csv"
+DATA_PATH = r"pump_sensor_sequence_1000_records.csv"
 
 def load_pump_data():
     df = pd.read_csv(DATA_PATH, parse_dates=['timestamp'])

@@ -8,12 +8,11 @@
 
 const APP_STATE = {
     currentRole: 'plant-engineer',
-    dataIndex: 0,
-    data: [],
+    data: [], // Historical buffer for charts
     isPlaying: true,
-    mlThreshold: 0.06222164315398973, // Updated threshold based on user input
     lastAnomalyScore: 0,
-    systemState: 'NORMAL' // NORMAL | WARNING | CRITICAL
+    systemState: 'LEARNING', // LEARNING | NORMAL | WARNING | CRITICAL
+    streamInterval: null
 };
 
 // Configuration for charts
@@ -59,22 +58,24 @@ const BASELINES = {
 // GLOBAL ML STATE (The Single Source of Truth for Anomalies)
 // ------------------------------------------------------------------
 const ML_STATE = {
-    // 1. STRICT OUTPUT FROM ML NOTEBOOK
+    // Dynamically updated from Backend API (Task 3)
     sensorAnomalyCounts: {
-        'Vibration_mm_s': 450,
-        'Bearing_Temperature_C': 420,
-        'Motor_Current_A': 380,
-        'Oil_Pressure_bar': 300,
-        'Flow_Rate_L_min': 260,
-        'Casing_Temperature_C': 220,
-        'Discharge_Pressure_bar': 200,
-        'Motor_RPM': 120,
-        'Suction_Pressure_bar': 80,
-        'Ambient_Temperature_C': 50
+        'Motor_RPM': 0, 'Bearing_Temperature_C': 0, 'Oil_Pressure_bar': 0, 'Vibration_mm_s': 0,
+        'Flow_Rate_L_min': 0, 'Suction_Pressure_bar': 0, 'Discharge_Pressure_bar': 0,
+        'Motor_Current_A': 0, 'Casing_Temperature_C': 0, 'Ambient_Temperature_C': 0
     },
     totalAnomalies: 0,
-    riskLevel: 'NORMAL', // Derived from counts
-    healthScore: 100     // Derived from counts
+    riskLevel: 'LEARNING',
+    healthScore: 100,
+    sequenceId: 0,
+    recordNumber: 0,
+    totalRecords: 1000,
+
+    // Financial Risk Engine Data (Phase 5/6)
+    moneyAtRisk: 0,
+    failureProbability: 0,
+    maintenanceCost: 0,
+    decision: 'MONITOR'
 };
 
 // Role-based Chat Prompts
@@ -104,16 +105,104 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupRoleSwitching();
     // 2. Initialize Chat
     setupChat();
-    // 3. Load Data & Render
-    await loadSensorData();
+    // 3. Start Live Streaming (Replacement for loadSensorData)
+    startLiveStreaming();
 
-    // Force Render after data load
+    // Force Render
     renderDashboard();
+});
 
-    if (APP_STATE.data.length > 0) {
+async function startLiveStreaming() {
+    console.log("🚀 TURBO MODE: Starting High-Speed Data Stream (300ms)...");
+
+    // Initial fetch
+    await fetchLiveStep();
+
+    // Set interval for continuous updates (100ms for TURBO speed)
+    if (APP_STATE.streamInterval) clearInterval(APP_STATE.streamInterval);
+    APP_STATE.streamInterval = setInterval(fetchLiveStep, 100);
+}
+
+async function fetchLiveStep() {
+    try {
+        const response = await fetch('/api/live');
+        if (!response.ok) throw new Error("API Offline");
+
+        const data = await response.json();
+
+        // Handle Completion (Phase 7)
+        if (data.status === 'COMPLETED') {
+            console.log("🏁 DATASET REPLAY COMPLETED");
+            if (APP_STATE.streamInterval) clearInterval(APP_STATE.streamInterval);
+            APP_STATE.systemState = 'COMPLETED';
+            updateMLStats(data);
+            updateViewComponents();
+            return;
+        }
+
+        // Update App State (Task 3)
+        APP_STATE.lastAnomalyScore = data.reconstruction_error;
+        APP_STATE.systemState = data.system_status;
+
+        // Flatten data for chart compatibility
+        const displayData = {
+            timestamp: data.timestamp,
+            ...data.sensor_values,
+            status: data.system_status,
+            anomaly_score: data.reconstruction_error,
+            sensor_states: data.sensor_states
+        };
+
+        // Add to historical buffer (max 50 points)
+        APP_STATE.data.push(displayData);
+        if (APP_STATE.data.length > 50) APP_STATE.data.shift();
+
+        // Update Dynamic ML Stats from Backend
+        updateMLStats(data);
+
+        // Update Header Time
+        document.getElementById('current-time').innerText = new Date(data.timestamp).toLocaleTimeString();
+
+        // Update View with flattened data
+        updateViewComponents(displayData);
+
+    } catch (error) {
+        console.error("Streaming Error:", error);
+        APP_STATE.systemState = "OFFLINE";
         updateViewComponents();
     }
-});
+}
+
+function updateMLStats(newData) {
+    // 1. Sync Anomaly Counts directly from Backend (Task 3)
+    if (newData.sensor_anomaly_counts) {
+        ML_STATE.sensorAnomalyCounts = newData.sensor_anomaly_counts;
+
+        // Calculate Total
+        let total = 0;
+        Object.values(ML_STATE.sensorAnomalyCounts).forEach(c => total += c);
+        ML_STATE.totalAnomalies = total;
+    }
+
+    // 2. Sync Progress (Phase 7: One-Pass)
+    ML_STATE.sequenceId = newData.record_number || 0;
+    ML_STATE.recordNumber = newData.record_number || 0;
+    ML_STATE.totalRecords = newData.total_records || 1000;
+
+    // 3. Update Risk Level based on Backend Status
+    ML_STATE.riskLevel = newData.system_status;
+
+    // 4. Update Health Score
+    ML_STATE.healthScore = Math.max(0, 100 - (ML_STATE.totalAnomalies / 10));
+
+    // 5. Sync Financial Data (Phase 6)
+    if (newData.money_at_risk !== undefined) {
+        ML_STATE.moneyAtRisk = newData.money_at_risk;
+        ML_STATE.failureProbability = newData.failure_probability;
+        ML_STATE.maintenanceCost = newData.maintenance_cost;
+        ML_STATE.decision = newData.decision;
+    }
+}
 
 function setupRoleSwitching() {
     const btns = document.querySelectorAll('.role-btn');
@@ -232,86 +321,7 @@ function loadMLInferenceResults() {
     console.log("ML State Loaded:", ML_STATE);
 }
 
-async function loadSensorData() {
-    try {
-        console.log("Attempting to fetch sensor_data.csv...");
-        const response = await fetch('pump_sensor_data_2000_anomaly.csv');
-        if (!response.ok) throw new Error(`Network response was not ok (${response.status})`);
-
-        const text = await response.text();
-        if (!text || text.trim().length === 0) throw new Error("CSV file is empty");
-
-        APP_STATE.data = parseCSV(text);
-        console.log(`Successfully loaded ${APP_STATE.data.length} records from CSV.`);
-
-    } catch (error) {
-        console.warn('Data Load Issue:', error.message);
-        console.warn("Switching to FALLBACK GENERATED DATA.");
-        APP_STATE.data = generateFallbackData();
-    }
-
-    // ALWAYS LOAD ML RESULTS (Source of Truth)
-    loadMLInferenceResults();
-    updateViewComponents();
-}
-
-function parseCSV(csvText) {
-    const lines = csvText.trim().split('\n');
-    const headers = lines[0].split(',').map(h => h.trim());
-
-    // Auto-detect numeric columns
-    return lines.slice(1).map(line => {
-        const values = line.split(',');
-        const obj = {};
-        headers.forEach((header, index) => {
-            const val = values[index] ? values[index].trim() : '';
-            // Try to convert to number if it looks like one, otherwise keep string
-            const num = parseFloat(val);
-            obj[header] = isNaN(num) ? val : num;
-        });
-        return obj;
-    });
-}
-
-function updateLoop() {
-    try {
-        if (!APP_STATE.isPlaying || APP_STATE.data.length === 0) return;
-
-        // Advance index
-        APP_STATE.dataIndex = (APP_STATE.dataIndex + 1) % APP_STATE.data.length;
-        const currentData = APP_STATE.data[APP_STATE.dataIndex];
-
-        // 1. ML Simulation (Calculate Anomaly Score) - Simplified for CSV data
-        // We utilize the 'Vibration' and 'Temperature' logic if they exist, or just use a random noise baseline if fields are missing
-        let reconstructionError = 0.05 + Math.random() * 0.02;
-
-        const vib = currentData['Vibration_mm_s'] || 0;
-        const temp = currentData['Bearing_Temperature_C'] || 0;
-
-        if (vib > 4.0) reconstructionError += 0.2;
-        if (temp > 75) reconstructionError += 0.3;
-
-        APP_STATE.lastAnomalyScore = reconstructionError;
-
-        // Update System Status based on ML
-        if (reconstructionError > APP_STATE.mlThreshold + 0.3) {
-            APP_STATE.systemState = 'CRITICAL';
-        } else if (reconstructionError > APP_STATE.mlThreshold) {
-            APP_STATE.systemState = 'WARNING';
-        } else {
-            APP_STATE.systemState = 'NORMAL';
-        }
-
-        // Update Header Time using actual timestamp if available
-        const timeDisplay = currentData.timestamp ? new Date(currentData.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
-        document.getElementById('current-time').innerText = timeDisplay;
-
-        // Update View
-        updateViewComponents(currentData);
-    } catch (e) {
-        console.error("Error in updateLoop:", e);
-    }
-}
+// Local Simulation Loop Removed in favor of fetchLiveStep
 
 function updateViewComponents(data) {
     if (!data) data = APP_STATE.data[APP_STATE.dataIndex];
@@ -388,34 +398,32 @@ function updateEngineerCharts(data) {
     if (CHART_INSTANCES['trend']) {
         const chart = CHART_INSTANCES['trend'];
 
-        // Only populate if empty to avoid re-render loops (static)
-        if (chart.data.labels.length === 0) {
-            // Use Global ML State
-            const counts = ML_STATE.sensorAnomalyCounts;
-            const totalRecords = APP_STATE.data.length || 1;
+        // Use Global ML State
+        const counts = ML_STATE.sensorAnomalyCounts;
+        const totalRecords = APP_STATE.data.length || 1;
 
-            const labels = [];
-            const reliabilityScores = [];
-            const colors = [];
+        const labels = [];
+        const reliabilityScores = [];
+        const colors = [];
 
-            SENSOR_ORDER.forEach(sensor => {
-                const count = counts[sensor] || 0;
-                const reliability = 100 - ((count / totalRecords) * 100);
+        SENSOR_ORDER.forEach(sensor => {
+            const count = counts[sensor] || 0;
+            // Reliability based on frequency of anomalies in the session
+            const reliability = Math.max(0, 100 - ((count / totalRecords) * 100));
 
-                labels.push(sensor.replace(/_/g, ' '));
-                reliabilityScores.push(reliability.toFixed(1));
+            labels.push(sensor.replace(/_/g, ' '));
+            reliabilityScores.push(reliability.toFixed(1));
 
-                // Color based on score
-                if (reliability < 80) colors.push('#da3633'); // Red
-                else if (reliability < 95) colors.push('#d29922'); // Orange
-                else colors.push('#238636'); // Green
-            });
+            // Color based on score (Task 4 rules)
+            if (reliability < 80) colors.push('#da3633'); // RED -> CRITICAL
+            else if (reliability < 95) colors.push('#d29922'); // ORANGE -> WARNING
+            else colors.push('#238636'); // GREEN -> NORMAL
+        });
 
-            chart.data.labels = labels;
-            chart.data.datasets[0].data = reliabilityScores;
-            chart.data.datasets[0].backgroundColor = colors;
-            chart.update('none');
-        }
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = reliabilityScores;
+        chart.data.datasets[0].backgroundColor = colors;
+        chart.update('none');
     }
 
     /* ----------------------------------------------------
@@ -448,37 +456,34 @@ function updateEngineerCharts(data) {
     if (CHART_INSTANCES['anomaly']) {
         const chart = CHART_INSTANCES['anomaly'];
 
-        if (chart.data.labels.length === 0) {
-            // Use Global ML State
-            const counts = ML_STATE.sensorAnomalyCounts;
+        // Use Global ML State
+        const counts = ML_STATE.sensorAnomalyCounts;
 
-            const sortedSensors = Object.entries(counts)
-                .sort(([, a], [, b]) => b - a)
-                .filter(([, count]) => count > 0);
+        const sortedSensors = Object.entries(counts)
+            .sort(([, a], [, b]) => b - a)
+            .filter(([, count]) => count > 0);
 
-            let finalLabels = [];
-            let finalData = [];
-            let finalColors = [];
+        let finalLabels = [];
+        let finalData = [];
+        let finalColors = [];
 
-            if (sortedSensors.length === 0) {
-                finalLabels = ['No Anomalies'];
-                finalData = [1];
-                finalColors = ['#238636'];
-            } else {
-                // Show ALL 10 Sensors
-                SENSOR_ORDER.forEach(sensor => {
-                    const count = counts[sensor] || 0;
-                    finalLabels.push(sensor.replace(/_/g, ' '));
-                    finalData.push(count);
-                    finalColors.push(SENSOR_COLORS[sensor] || '#888');
-                });
-            }
-
-            chart.data.labels = finalLabels;
-            chart.data.datasets[0].data = finalData;
-            chart.data.datasets[0].backgroundColor = finalColors;
-            chart.update('none');
+        if (sortedSensors.length === 0) {
+            finalLabels = ['No Anomalies'];
+            finalData = [1];
+            finalColors = ['#238636'];
+        } else {
+            // Show Top 5
+            sortedSensors.slice(0, 5).forEach(([sensor, count]) => {
+                finalLabels.push(sensor.replace(/_/g, ' '));
+                finalData.push(count);
+                finalColors.push(SENSOR_COLORS[sensor] || '#888');
+            });
         }
+
+        chart.data.labels = finalLabels;
+        chart.data.datasets[0].data = finalData;
+        chart.data.datasets[0].backgroundColor = finalColors;
+        chart.update('none');
     }
 }
 
@@ -486,32 +491,29 @@ function updateEngineerAlerts(data) {
     const alertPanel = document.getElementById('engineer-alerts');
     if (!alertPanel) return;
 
-    let html = '';
-    // Use data-driven alerts
-    if (data.Vibration_mm_s > 4.0) {
-        html += `
-            <div class="alert-card critical">
-                <h4>CRITICAL ALERT</h4>
-                <p>High Vibration detected (${data.Vibration_mm_s.toFixed(2)} mm/s).</p>
-                <div class="alert-actions">
-                    <button>Acknowledge</button>
-                    <button>View Analysis</button>
-                </div>
-            </div>
-        `;
-    }
-    if (data.Bearing_Temperature_C > 80) {
-        html += `
-            <div class="alert-card warning">
-                <h4>TEMP WARNING</h4>
-                <p>High Temperature (${data.Bearing_Temperature_C.toFixed(1)} °C).</p>
-            </div>
-        `;
+    if (APP_STATE.systemState === 'LEARNING') {
+        alertPanel.innerHTML = '<div class="alert-card learning"><p>⏳ System Learning... (Populating sequence buffer)</p></div>';
+        return;
     }
 
-    if (html === '') {
-        html = '<div class="alert-card ok"><p>No active alerts.</p></div>';
+    if (APP_STATE.systemState === 'NORMAL') {
+        alertPanel.innerHTML = '<div class="alert-card ok"><p>✅ System Stable. No active anomalies.</p></div>';
+        return;
     }
+
+    let html = '';
+    const statusColor = APP_STATE.systemState === 'CRITICAL' ? 'critical' : 'warning';
+    const statusTitle = APP_STATE.systemState.toUpperCase();
+
+    html += `
+        <div class="alert-card ${statusColor}">
+            <h4>${statusTitle} ALERT</h4>
+            <p>ML Inference detected <strong>${APP_STATE.systemState}</strong> state (Score: ${APP_STATE.lastAnomalyScore.toFixed(4)}).</p>
+            <div class="alert-actions">
+                <button>Acknowledge</button>
+            </div>
+        </div>
+    `;
 
     alertPanel.innerHTML = html;
 }
@@ -540,18 +542,24 @@ function generateAndRenderRUL(sensorStats) {
         Ambient_Temperature_C: "Ambient Temp"
     };
 
+    function calculateRUL(count) {
+        if (count === 0) return 95;
+        if (count <= 2) return 90;
+        if (count <= 5) return 80;
+        if (count <= 10) return 65;
+        if (count <= 20) return 50;
+        return 30;
+    }
+
     let items = [];
 
     sensors.forEach(key => {
         const count = sensorStats[key] || 0;
-        let rulPct = 95;
+        let rulPct = calculateRUL(count);
         let color = "green";
 
-        // STRICT RUL MAPPING
-        if (count > 200) { rulPct = 20; color = "red"; }        // 10-30%
-        else if (count > 100) { rulPct = 40; color = "amber"; } // 30-50%
-        else if (count > 50) { rulPct = 60; color = "amber"; }  // 50-70%
-        else { rulPct = 85; color = "green"; }                  // 70-95%
+        if (rulPct < 40) color = "red";
+        else if (rulPct < 75) color = "amber";
 
         items.push({ name: displayNames[key], value: rulPct, color: color });
     });
@@ -593,14 +601,35 @@ function updatePlantHeadView(data) {
         elRisk.className = (ML_STATE.riskLevel === 'CRITICAL') ? "value critical-text" : "value success-text";
     }
 
-    // C. Fail Risk Window
-    const elWindow = document.getElementById('ph-risk-window');
-    if (elWindow) {
-        // High Risk = <24 hrs, Medium = 24-72 hrs
-        elWindow.innerText = (ML_STATE.riskLevel === 'CRITICAL') ? "24–36 Hours" : "Safe";
+    // D. Executive Summary
+    const elSummary = document.getElementById('ph-executive-summary');
+    if (elSummary) {
+        if (APP_STATE.systemState === 'COMPLETED') {
+            elSummary.innerHTML = `🏁 Dataset replay completed (1000/1000). System state is frozen at final audit point.`;
+        } else if (ML_STATE.riskLevel === 'LEARNING') {
+            elSummary.innerHTML = `System in warm-up phase. Tracking [Record: ${ML_STATE.recordNumber} / ${ML_STATE.totalRecords}]. No critical risk detected yet.`;
+        } else if (ML_STATE.riskLevel === 'CRITICAL') {
+            elSummary.innerHTML = `⚠️ High-risk deviation detected at [Record: ${ML_STATE.recordNumber}]. Critical vibration and pressure anomalies suggest imminent failure.`;
+        } else {
+            elSummary.innerHTML = `Industrial pump operating within normal parameters. Replaying [Record: ${ML_STATE.recordNumber} / ${ML_STATE.totalRecords}].`;
+        }
     }
 
     // D. System Confidence (REMOVED)
+
+    // C. Fail Risk Window
+    const elWindow = document.getElementById('ph-risk-window');
+    if (elWindow) {
+        if (ML_STATE.riskLevel === 'LEARNING') {
+            elWindow.innerText = "Learning...";
+        } else if (ML_STATE.failureProbability > 0.7) {
+            elWindow.innerText = "24–36 Hours";
+        } else if (ML_STATE.failureProbability > 0.4) {
+            elWindow.innerText = "3–5 Days";
+        } else {
+            elWindow.innerText = "Safe";
+        }
+    }
 
     // New: Top 3 Fault Sensors
     const elTopFaults = document.getElementById('ph-top-faults');
@@ -644,16 +673,21 @@ function updatePlantHeadView(data) {
         driversContainer.innerHTML = html;
     }
 
-    // ----------------------------------------------------
     // 3. EXECUTIVE SUMMARY
-    // ----------------------------------------------------
     const summaryEl = document.getElementById('ph-executive-summary');
     if (summaryEl) {
-        if (ML_STATE.riskLevel === 'CRITICAL') {
-            summaryEl.innerHTML = `The system is in a <strong>CRITICAL</strong> state. Immediate intervention required for top contributors.`;
+        const { moneyAtRisk, decision } = ML_STATE;
+        if (ML_STATE.riskLevel === 'LEARNING') {
+            summaryEl.innerHTML = `System sequence buffer is initializing. Baseline monitoring active.`;
+            summaryEl.style.borderLeftColor = "#58a6ff";
+        } else if (decision === 'APPROVE_MAINTENANCE') {
+            summaryEl.innerHTML = `The system is in a <strong>CRITICAL</strong> state. Repair approval is recommended to avoid ₹${(moneyAtRisk / 100000).toFixed(1)}L loss.`;
             summaryEl.style.borderLeftColor = "#da3633";
+        } else if (ML_STATE.riskLevel === 'WARNING') {
+            summaryEl.innerHTML = `System anomalies detected. Monitoring for escalation. No immediate intervention required.`;
+            summaryEl.style.borderLeftColor = "#d29922";
         } else {
-            summaryEl.innerHTML = `System operating within acceptable limits.`;
+            summaryEl.innerHTML = `System operating within acceptable limits. All critical parameters stable.`;
             summaryEl.style.borderLeftColor = "#238636";
         }
     }
@@ -670,35 +704,70 @@ function updatePlantHeadView(data) {
 }
 
 function updateManagementView(data) {
-    // Management view: Financial Impact driven by Anomaly Distribution
-    const TOTAL_BUDGET_RISK = 450000; // Total potential loss
+    // Management view: Financial Impact driven by Backend Financial Engine (Phase 6)
+    const { moneyAtRisk, failureProbability, maintenanceCost, decision } = ML_STATE;
     const totalAnomalies = ML_STATE.totalAnomalies || 1;
 
     // 1. Update Money at Risk KPI
     const moneyRiskEl = document.getElementById('mgmt-money-risk');
     if (moneyRiskEl) {
-        // Proportion of anomalies * total risk
-        // If status is CRITICAL, show total risk. If NORMAL, show 0.
-        let displayCost = 0;
-        if (ML_STATE.riskLevel === 'CRITICAL') {
-            displayCost = TOTAL_BUDGET_RISK;
-        } else if (ML_STATE.riskLevel === 'UNSTABLE') {
-            displayCost = TOTAL_BUDGET_RISK * 0.5;
-        } else if (ML_STATE.riskLevel === 'WATCH') {
-            displayCost = TOTAL_BUDGET_RISK * 0.2;
-        }
-        moneyRiskEl.innerText = `₹${(displayCost / 100000).toFixed(1)}L`;
+        moneyRiskEl.innerText = `₹${(moneyAtRisk / 100000).toFixed(2)}L`;
     }
 
-    // 2. Failure Window & Risk After
+    // 2. Failure Window & Risk Stats
     const timeFailureEl = document.getElementById('mgmt-time-failure');
     if (timeFailureEl) {
-        timeFailureEl.innerText = (ML_STATE.riskLevel === 'CRITICAL') ? "24–36h" : "Stable";
+        if (ML_STATE.riskLevel === 'LEARNING') {
+            timeFailureEl.innerText = "Learning...";
+        } else if (failureProbability > 0.7) {
+            timeFailureEl.innerText = "24–36h";
+        } else if (failureProbability > 0.4) {
+            timeFailureEl.innerText = "3–5 Days";
+        } else {
+            timeFailureEl.innerText = "Stable";
+        }
     }
 
     const actionStatusEl = document.getElementById('mgmt-action-status');
     if (actionStatusEl) {
-        actionStatusEl.innerText = (ML_STATE.riskLevel === 'CRITICAL' || ML_STATE.riskLevel === 'UNSTABLE') ? "Action Required" : "Monitoring";
+        actionStatusEl.innerText = (decision === 'APPROVE_MAINTENANCE') ? "Action Required" : "Monitoring";
+        actionStatusEl.className = (decision === 'APPROVE_MAINTENANCE') ? "metric-big text-critical" : "metric-big text-success";
+    }
+
+    // 2.5 New Dynamic Comparison Elements
+    const contextBar = document.getElementById('mgmt-context-bar');
+    if (contextBar) {
+        const riskL = (moneyAtRisk / 100000).toFixed(2);
+        if (ML_STATE.riskLevel === 'LEARNING') {
+            contextBar.innerHTML = `⏳ System Learning... Establishing financial baseline.`;
+            contextBar.style.borderLeftColor = "#58a6ff";
+        } else if (decision === 'APPROVE_MAINTENANCE') {
+            contextBar.innerHTML = `ℹ️ Financial exposure is high. Immediate maintenance avoids critical ₹${riskL}L loss.`;
+            contextBar.style.borderLeftColor = "#da3633";
+        } else {
+            contextBar.innerHTML = `ℹ️ System stable. Current risk of ₹${riskL}L is below intervention threshold.`;
+            contextBar.style.borderLeftColor = "#238636";
+        }
+    }
+
+    const costApproveEl = document.getElementById('mgmt-cost-approve');
+    if (costApproveEl) {
+        costApproveEl.innerText = `₹${maintenanceCost.toLocaleString()}`;
+    }
+
+    const costDelayEl = document.getElementById('mgmt-cost-delay');
+    if (costDelayEl) {
+        costDelayEl.innerText = `~₹${(moneyAtRisk / 100000).toFixed(2)} Lakhs`;
+    }
+
+    const delayRiskText = document.getElementById('mgmt-delay-risk-text');
+    if (delayRiskText) {
+        const prob = (failureProbability * 100).toFixed(0);
+        delayRiskText.innerHTML = `
+            • ${prob}% Failure Probability<br>
+            • Projected Loss: ₹${(moneyAtRisk / 1000).toFixed(0)}k<br>
+            • Unplanned downtime impacts production
+        `;
     }
 
     // 3. Cost Drivers Breakdown (Dynamic)
@@ -711,7 +780,7 @@ function updateManagementView(data) {
         let html = '';
         sorted.slice(0, 3).forEach(([key, count]) => {
             const percentage = ((count / totalAnomalies) * 100).toFixed(0);
-            const costShare = (count / totalAnomalies) * TOTAL_BUDGET_RISK;
+            const costShare = (count / totalAnomalies) * moneyAtRisk;
 
             html += `
                 <div class="cost-driver-item">
@@ -733,77 +802,91 @@ function updateManagementView(data) {
     // 4. Executive Summary
     const summaryEl = document.getElementById('mgmt-executive-summary');
     if (summaryEl) {
-        if (ML_STATE.riskLevel === 'CRITICAL') {
-            summaryEl.innerHTML = `System shows high failure risk within 24–36 hours. Approving maintenance now avoids <strong>₹${(TOTAL_BUDGET_RISK / 100000).toFixed(1)} Lakhs</strong> in projected loss.`;
+        if (APP_STATE.systemState === 'COMPLETED') {
+            summaryEl.innerHTML = `🏁 Dataset Replay Completed (1000 / 1000). All projected risks have been logged. Asset health frozen at final state.`;
+            summaryEl.style.borderLeftColor = "#58a6ff";
+        } else if (ML_STATE.riskLevel === 'LEARNING') {
+            summaryEl.innerHTML = `System is currently in LEARNING mode. Baseline financial risk will be available after sequence buffer is full.`;
+            summaryEl.style.borderLeftColor = "#58a6ff";
+        } else if (decision === 'APPROVE_MAINTENANCE') {
+            summaryEl.innerHTML = `High probability of failure detected. Immediate maintenance recommended to avoid <strong>₹${(moneyAtRisk / 100000).toFixed(2)} Lakhs</strong> in projected downtime loss.`;
             summaryEl.style.borderLeftColor = "#da3633";
-        } else if (ML_STATE.riskLevel === 'UNSTABLE') {
-            summaryEl.innerHTML = `System is showing signs of instability. Proactive maintenance is recommended to prevent escalation.`;
-            summaryEl.style.borderLeftColor = "#d29922";
         } else {
-            summaryEl.innerHTML = `Asset health is currently within normal operating parameters. No immediate capital risk identified.`;
+            summaryEl.innerHTML = `System status is stable. Projected loss of ₹${(moneyAtRisk / 100000).toFixed(2)}L does not yet justify immediate maintenance cost of ₹${(maintenanceCost / 1000).toFixed(0)}k.`;
             summaryEl.style.borderLeftColor = "#238636";
         }
     }
 
-    // 5. Action Button Logic
+    // 5. Action Button Logic (Dynamic)
     const btnApprove = document.getElementById('btn-approve-repair');
-    if (btnApprove && !btnApprove.dataset.bound) {
-        btnApprove.dataset.bound = "true";
-        btnApprove.onclick = () => {
-            const originalText = btnApprove.innerHTML;
-            btnApprove.innerHTML = "⏳ Processing...";
-            btnApprove.style.opacity = "0.7";
-            btnApprove.disabled = true;
+    if (btnApprove) {
+        const costK = (maintenanceCost / 1000).toFixed(0);
 
-            setTimeout(() => {
-                btnApprove.innerHTML = originalText;
-                btnApprove.style.opacity = "1";
-                btnApprove.disabled = false;
-                alert(`✅ Successfully send the request for Maintenance Approval\n\nSystem verification passed.`);
-            }, 800);
-        };
+        if (decision === 'APPROVE_MAINTENANCE') {
+            btnApprove.innerHTML = `Approve Maintenance Now – ₹${costK}k`;
+            btnApprove.style.backgroundColor = "#238636";
+            btnApprove.style.cursor = "pointer";
+            btnApprove.disabled = false;
+            btnApprove.style.opacity = "1";
+        } else {
+            btnApprove.innerHTML = `Monitoring – Risk ₹${(moneyAtRisk / 1000).toFixed(0)}k < ₹${costK}k Cost`;
+            btnApprove.style.backgroundColor = "#30363d";
+            btnApprove.style.cursor = "not-allowed";
+            btnApprove.disabled = true;
+            btnApprove.style.opacity = "0.6";
+        }
+
+        if (!btnApprove.dataset.bound) {
+            btnApprove.dataset.bound = "true";
+            btnApprove.addEventListener('click', () => {
+                const originalText = btnApprove.innerHTML;
+                btnApprove.innerHTML = "⏳ Sending Approval...";
+                btnApprove.style.opacity = "0.7";
+                btnApprove.disabled = true;
+
+                setTimeout(() => {
+                    btnApprove.innerHTML = originalText;
+                    btnApprove.style.opacity = "1";
+                    btnApprove.disabled = false;
+                    alert(`✅ Maintenance Approved! \n\nWork order created for next scheduled shutdown. Expected ROI: ₹${((moneyAtRisk - maintenanceCost) / 100000).toFixed(2)} Lakhs.`);
+                }, 1200);
+            });
+        }
     }
 
     // 6. Timestamp
     const timeEl = document.getElementById('data-timestamp-mgmt');
     if (timeEl) {
-        timeEl.innerText = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        timeEl.innerText = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
     }
 }
 
 function updateAdminView(data) {
-    // ----------------------------------------------------
-    // ADMIN SYSTEM ASSURANCE VIEW
-    // ----------------------------------------------------
+    // Task 4: ADMIN SYSTEM VERIFICATION
 
-    const totalAnomalies = ML_STATE.totalAnomalies || 0;
-    const hasData = APP_STATE.data.length > 0;
-    const isCritical = ML_STATE.riskLevel === 'CRITICAL';
+    const isLive = APP_STATE.systemState !== 'OFFLINE';
+    const isLearning = APP_STATE.systemState === 'LEARNING';
+    const isCompleted = APP_STATE.systemState === 'COMPLETED';
 
     // 1. Update Status Banner
     const banner = document.getElementById('admin-assurance-banner');
     if (banner) {
-        if (!hasData) {
+        if (!isLive) {
             banner.style.background = "rgba(218,54,51,0.1)";
             banner.style.borderColor = "#da3633";
-            banner.innerHTML = `
-                <h2 class="text-critical" style="margin: 0; font-size: 1.8rem;">⚠️ DATA DISCONNECTED</h2>
-                <p class="text-muted" style="margin: 10px 0 0 0;">Unable to reach primary data stream. System standby.</p>
-            `;
-        } else if (totalAnomalies > 1000) {
-            banner.style.background = "rgba(218,54,51,0.1)";
-            banner.style.borderColor = "#da3633";
-            banner.innerHTML = `
-                <h2 class="text-critical" style="margin: 0; font-size: 1.8rem;">⚠️ VERIFY PIPELINE</h2>
-                <p class="text-muted" style="margin: 10px 0 0 0;">Anomalous density exceeding bounds (${totalAnomalies} events). Audit suggested.</p>
-            `;
+            banner.innerHTML = `<h2 class="text-critical">⚠️ API UNREACHABLE</h2><p>Flask backend is disconnected.</p>`;
+        } else if (isCompleted) {
+            banner.style.background = "rgba(88,166,255,0.1)";
+            banner.style.borderColor = "#58a6ff";
+            banner.innerHTML = `<h2 class="text-blue">🏁 REPLAY COMPLETED</h2><p>Dataset fully consumed. All ${ML_STATE.totalRecords} records processed.</p>`;
+        } else if (isLearning) {
+            banner.style.background = "rgba(88,166,255,0.1)";
+            banner.style.borderColor = "#58a6ff";
+            banner.innerHTML = `<h2 class="text-blue">⏳ SYSTEM LEARNING</h2><p>Collecting initial 30 samples for sequence buffer...</p>`;
         } else {
             banner.style.background = "rgba(35,134,54,0.1)";
             banner.style.borderColor = "#238636";
-            banner.innerHTML = `
-                <h2 class="text-success" style="margin: 0; font-size: 1.8rem;">✅ SYSTEM RELIABLE</h2>
-                <p class="text-muted" style="margin: 10px 0 0 0;">All critical system checks passed. Platform is stable.</p>
-            `;
+            banner.innerHTML = `<h2 class="text-success">✅ SYSTEM RELIABLE</h2><p>Mode: ONE-PASS REPLAY. Data streaming active.</p>`;
         }
     }
 
@@ -811,25 +894,29 @@ function updateAdminView(data) {
     const flowHealth = document.getElementById('admin-flow-health');
     if (flowHealth) {
         flowHealth.innerHTML = `
-            <div class="row-between" style="padding: 12px 0; border-bottom: 1px solid #21262d;">
-                <span class="text-muted">1. Data Source Connected</span>
-                <strong class="text-success">✔ Verified</strong>
+            <div class="row-between py-2 border-bottom">
+                <span class="text-muted">Dataset</span>
+                <strong class="text-white">${ML_STATE.totalRecords === 1000 ? 'pump_sensor_sequence_1000_records.csv' : 'Industrial Dataset'}</strong>
             </div>
-            <div class="row-between" style="padding: 12px 0; border-bottom: 1px solid #21262d;">
-                <span class="text-muted">2. Dataset Ingestion (${APP_STATE.data.length} records)</span>
-                <strong class="text-success">✔ Success</strong>
+            <div class="row-between py-2 border-bottom">
+                <span class="text-muted">Records</span>
+                <strong class="text-white">${ML_STATE.totalRecords}</strong>
             </div>
-            <div class="row-between" style="padding: 12px 0; border-bottom: 1px solid #21262d;">
-                <span class="text-muted">3. Inference Model State</span>
-                <strong class="text-success">✔ Healthy</strong>
+            <div class="row-between py-2 border-bottom">
+                <span class="text-muted">Mode</span>
+                <strong class="text-blue">ONE-PASS (No Loop)</strong>
             </div>
-            <div class="row-between" style="padding: 12px 0; border-bottom: 1px solid #21262d;">
-                <span class="text-muted">4. Anomaly Density (${totalAnomalies})</span>
-                <strong class="${totalAnomalies > 500 ? 'text-warning' : 'text-success'}">✔ Within Bounds</strong>
+            <div class="row-between py-2 border-bottom">
+                <span class="text-muted">Current Record</span>
+                <strong class="text-success">${ML_STATE.recordNumber} / ${ML_STATE.totalRecords}</strong>
             </div>
-            <div class="row-between" style="padding: 12px 0;">
-                <span class="text-muted">5. View Synchronization</span>
-                <strong class="text-success">✔ In Sync</strong>
+            <div class="row-between py-2 border-bottom">
+                <span class="text-muted">ML Engine</span>
+                <strong class="text-success">✔ Running</strong>
+            </div>
+            <div class="row-between py-2">
+                <span class="text-muted">Sequence Buffer</span>
+                <strong class="${isLearning ? 'text-warning' : 'text-success'}">${isLearning ? 'Filling (Window=30)' : '✔ Active'}</strong>
             </div>
         `;
     }
@@ -837,13 +924,11 @@ function updateAdminView(data) {
     // 3. Update Activity Log
     const activityLog = document.getElementById('admin-activity-log');
     if (activityLog) {
-        const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const timestamp = new Date().toLocaleTimeString();
         activityLog.innerHTML = `
-            <li>[${timestamp}] Bootstrapped Admin View.</li>
-            <li>[${timestamp}] ML State Summary: ${totalAnomalies} total historical anomalies detected.</li>
-            <li>[${timestamp}] Verification Audit: All 10 sensor streams checked for consistency.</li>
-            <li>[${timestamp}] Optimization: Layout forced to 100% width for dashboard visual parity.</li>
-            <li>[${timestamp}] Data Fingerprint: Verified 2000 records from CSV.</li>
+            <li>[${timestamp}] Mode: ONE-PASS DATA REPLAY</li>
+            <li>[${timestamp}] Current Record: ${ML_STATE.recordNumber} / ${ML_STATE.totalRecords}</li>
+            <li>[${timestamp}] API Status: ${APP_STATE.systemState}</li>
         `;
     }
 
@@ -854,8 +939,14 @@ function updateAdminView(data) {
 
     // 5. Bind Admin Actions
     setupAdminButton('btn-reload-data', "Dataset Reloaded", "Fetching latest CSV...");
-    setupAdminButton('btn-refresh-ml', "Inference Refreshed", "Verifying model outputs...");
-    setupAdminButton('btn-resync-ui', "Dashboard Synced", "Forcing view update...");
+    setupAdminButton('btn-refresh-ml', "Resetting Counters", "Calling /api/admin/reset-counters...");
+    const refreshBtn = document.getElementById('btn-refresh-ml');
+    if (refreshBtn) {
+        refreshBtn.onclick = async () => {
+            await fetch('/api/admin/reset-counters', { method: 'POST' });
+            alert("Anomaly Counters Reset Successful.");
+        };
+    }
 }
 
 function setupAdminButton(id, successText, logText) {
@@ -924,30 +1015,25 @@ function updateEngineerTable(data) {
         // STRICT: ANOMALY COUNT FROM ML STATE
         const count = ML_STATE.sensorAnomalyCounts[key]; // Guaranteed to be defined
 
-        // Determine Status Level (Strict Mapping)
-        let status = 'NORMAL';
-        let statusClass = 'text-success';
+        // Determine Status Level (Strict Mapping - Task 3)
+        const sensorState = (data && data.sensor_states) ? data.sensor_states[key] : 'NORMAL';
+        let statusClass = 'text-white';
         let badgeClass = 'status-ok';
         let badgeText = '🟢 NORMAL';
 
-        if (count > 200) {
-            status = 'CRITICAL';
-            statusClass = 'text-critical';
+        if (APP_STATE.systemState === 'LEARNING') {
+            badgeClass = 'status-learning';
+            badgeText = '⚪ LEARNING';
+            statusClass = 'text-muted';
+        } else if (sensorState === 'ANOMALY') {
             badgeClass = 'status-critical';
-            badgeText = '🔴 CRITICAL';
-        } else if (count > 100) {
-            status = 'UNSTABLE';
-            statusClass = 'text-warning';
-            badgeClass = 'status-warning';
-            badgeText = '🟠 UNSTABLE';
-        } else if (count > 50) {
-            status = 'WATCH';
-            statusClass = 'text-warning';
-            badgeClass = 'status-warning';
-            badgeText = '🟡 WATCH';
+            badgeText = '🔴 ANOMALY';
+            statusClass = 'text-critical';
+        } else {
+            statusClass = 'text-success';
         }
 
-        return { key, actual, meaning: config.meaning, anomalyCount: count, status, statusClass, badgeClass, badgeText };
+        return { key, actual, meaning: config.meaning, anomalyCount: count, status: sensorState, statusClass, badgeClass, badgeText };
     });
 
     // Sort by Anomaly Count Descending
@@ -973,9 +1059,16 @@ function updateEngineerTable(data) {
     const banner = document.getElementById('risk-banner');
     const riskText = document.getElementById('risk-summary-text');
     if (banner && riskText) {
-        if (criticalCount > 0) {
+        if (APP_STATE.systemState === 'COMPLETED') {
             banner.style.display = 'block';
-            riskText.innerHTML = `${criticalCount} Sensor(s) in <strong>CRITICAL FAILURE STATE</strong>. Immediate maintenance recommended.`;
+            banner.style.background = 'rgba(88,166,255,0.1)';
+            banner.style.borderLeftColor = '#58a6ff';
+            riskText.innerHTML = `🏁 REPLAY COMPLETED: <strong>${ML_STATE.recordNumber} / ${ML_STATE.totalRecords} Records</strong> processed.`;
+        } else if (APP_STATE.systemState !== 'NORMAL') {
+            banner.style.display = 'block';
+            banner.style.background = APP_STATE.systemState === 'CRITICAL' ? '#2f1e1e' : '#2f2b1e';
+            banner.style.borderLeftColor = APP_STATE.systemState === 'CRITICAL' ? '#da3633' : '#d29922';
+            riskText.innerHTML = `SYSTEM STATUS: <strong>${APP_STATE.systemState}</strong>. [Record: ${ML_STATE.recordNumber} / ${ML_STATE.totalRecords}]`;
         } else {
             banner.style.display = 'none';
         }

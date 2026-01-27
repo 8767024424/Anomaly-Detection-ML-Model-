@@ -479,9 +479,9 @@
             </div>
 
             <!-- ONE-LINE CONTEXT -->
-            <div
+            <div id="mgmt-context-bar"
                 style="margin-bottom: 20px; font-size: 1rem; color: #8b949e; background: #151a21; padding: 10px 15px; border-radius: 6px; border-left: 4px solid #da3633;">
-                ℹ️ Financial exposure is critical. Immediate maintenance prevents ₹4.5L loss.
+                ℹ️ Initializing financial risk assessment...
             </div>
 
             <!-- 2. DECISION & DRIVERS (Split View) -->
@@ -498,7 +498,7 @@
                                 style="background: rgba(35,134,54,0.1); border-left: 3px solid #238636; padding: 15px; border-radius: 4px;">
                                 <div class="row-between">
                                     <strong class="text-success">✅ Approve Repair</strong>
-                                    <span class="text-white">₹25,000</span>
+                                    <span class="text-white" id="mgmt-cost-approve">₹25,000</span>
                                 </div>
                                 <div class="small text-muted mt-2">
                                     • Risk reduced to minimal<br>
@@ -511,9 +511,9 @@
                                 style="background: rgba(218,54,51,0.1); border-left: 3px solid #da3633; padding: 15px; border-radius: 4px;">
                                 <div class="row-between">
                                     <strong class="text-critical">❌ Delay Action</strong>
-                                    <span class="text-white">~₹4.5 Lakhs</span>
+                                    <span class="text-white" id="mgmt-cost-delay">~₹4.5 Lakhs</span>
                                 </div>
-                                <div class="small text-muted mt-2">
+                                <div class="small text-muted mt-2" id="mgmt-delay-risk-text">
                                     • High failure probability (24-36h)<br>
                                     • Unplanned downtime impacts production
                                 </div>

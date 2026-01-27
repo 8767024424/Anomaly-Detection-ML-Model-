@@ -1,86 +1,75 @@
-from flask import Flask, jsonify, request, send_from_directory
-import csv
+import pandas as pd
+from flask import Flask, jsonify, send_from_directory
+from datetime import datetime
+from inference import run_inference
 import os
-import json
 
 app = Flask(__name__, static_folder='.')
 
-# Configuration
+# --- Production Data Loading ---
 DATA_FILE = 'pump_sensor_data_2000_anomaly.csv'
-ALERTS_FILE = 'dynamic_alerts.json'
+if not os.path.exists(DATA_FILE):
+    # Fallback to previous name if user didn't rename
+    DATA_FILE = 'pump_sensor_sequence_1000_records.csv'
 
-def load_data():
-    results = []
-    if os.path.exists(DATA_FILE):
-        with open(DATA_FILE, 'r') as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                # Convert numeric values
-                for k, v in row.items():
-                    if k != 'timestamp' and k != 'machine_status':
-                        try:
-                            row[k] = float(v)
-                        except ValueError:
-                            pass
-                results.append(row)
-    return results
-
-def load_alerts():
-    if os.path.exists(ALERTS_FILE):
-        try:
-            with open(ALERTS_FILE, 'r') as f:
-                return json.load(f)
-        except:
-            return []
-    return []
-
-def save_alerts(alerts):
-    with open(ALERTS_FILE, 'w') as f:
-        json.dump(alerts, f, indent=2)
-
-# --- Routes ---
+print(f"Loading ingestion buffer from {DATA_FILE}...")
+df = pd.read_csv(DATA_FILE)
+DATA = df.to_dict("records")
+TOTAL_RECORDS = len(DATA)
+CURRENT_INDEX = 0
 
 @app.route('/')
 def index():
-    print(">>> Serving index.html from:", os.path.abspath('index.html'))
     return send_from_directory('.', 'index.html')
 
 @app.route('/<path:path>')
 def serve_static(path):
     return send_from_directory('.', path)
 
-# 1. Exposed API for "Any Role"
-@app.route('/api/v1/data', methods=['GET'])
-def get_sensor_data():
+@app.route('/api/live', methods=['GET'])
+def get_live():
     """
-    Public API endpoint exposed for external access.
-    Returns the full sensor dataset.
+    TASK 3: Real-Time Stream Simulator
+    Processes one record per call to emulate industrial telemetry.
     """
-    data = load_data()
-    return jsonify({
-        "status": "success",
-        "count": len(data),
-        "data": data
-    })
-
-# 2. Dynamic Alerts API
-@app.route('/api/v1/alerts', methods=['GET', 'POST'])
-def manage_alerts():
-    """
-    API to Manage User-Created Alerts
-    """
-    if request.method == 'POST':
-        # New Alert
-        new_alert = request.json
-        alerts = load_alerts()
-        alerts.append(new_alert)
-        save_alerts(alerts)
-        return jsonify({"status": "created", "alert": new_alert})
+    global CURRENT_INDEX
     
-    # List Alerts
-    return jsonify(load_alerts())
+    if CURRENT_INDEX >= TOTAL_RECORDS:
+        return jsonify({
+            "status": "COMPLETED",
+            "message": "Dataset stream exhausted.",
+            "record_number": TOTAL_RECORDS,
+            "total_records": TOTAL_RECORDS
+        })
+        
+    # 1. Simulate Live Reading
+    row = DATA[CURRENT_INDEX]
+    CURRENT_INDEX += 1
+    
+    # 2. Invoke ML pipeline
+    results = run_inference(row)
+    
+    # 3. Construct Payload (Task 3 Requirement)
+    payload = {
+        "record_number": CURRENT_INDEX,
+        "total_records": TOTAL_RECORDS,
+        "timestamp": row.get('timestamp', datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+        "sensor_values": results["sensor_values"],
+        "sensor_states": results["sensor_states"],
+        "sensor_anomaly_counts": results["sensor_anomaly_counts"],
+        "total_anomalies": results["total_anomalies"],
+        "system_status": results["system_status"],
+        "reconstruction_error": results["reconstruction_error"]
+    }
+    
+    return jsonify(payload)
+
+@app.route('/api/admin/reset', methods=['POST'])
+def reset_stream():
+    global CURRENT_INDEX
+    CURRENT_INDEX = 0
+    return jsonify({"status": "Stream Reset Successful"})
 
 if __name__ == '__main__':
-    print("Industrial Dashboard Backend Running on http://localhost:5000")
-    print("API Access: http://localhost:5000/api/v1/data")
-    app.run(port=5000, debug=True)
+    print(f"Production Monitor Active: {TOTAL_RECORDS} records ready.")
+    app.run(host='0.0.0.0', port=5000, debug=False)
