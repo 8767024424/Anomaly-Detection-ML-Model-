@@ -7,7 +7,7 @@
     <title>Industrial AI Dashboard</title>
     <link rel="stylesheet" href="styles.css?v=2">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 </head>
 <style>
     /* FORCED ADMIN STYLES (Cache Bypass) */
@@ -205,8 +205,11 @@
 
             <div class="system-status">
                 <h3>System Health</h3>
-                <div class="status-item">Data Stream: <span class="status-ok">Live</span></div>
-                <div class="status-item">ML Model: <span class="status-ok">Active</span></div>
+                <div class="status-item">Data Stream: <span id="sidebar-stream-status" class="status-ok">Live</span>
+                </div>
+                <div class="status-item">ML Model: <span id="sidebar-ml-status" class="status-ok">Active</span></div>
+                <div class="status-item">Latency: <span id="inference-latency">--</span> ms</div>
+                <div class="status-item">RAM Usage: <span id="memory-usage">--</span> MB</div>
             </div>
         </nav>
 
@@ -266,6 +269,20 @@
                             <span id="risk-summary-text">Analyzing...</span>
                         </p>
                     </div>
+                </div>
+            </div>
+
+            <!-- LIVE INTELLIGENCE STREAM (Line Chart) -->
+            <div class="card full-width">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="margin: 0;">Live Intelligence Stream</h3>
+                    <div style="font-size: 0.8rem; color: var(--text-secondary);">
+                        <span style="color: var(--status-critical);">●</span> Anomaly Threshold: <span
+                            id="threshold-val">--</span>
+                    </div>
+                </div>
+                <div class="chart-wrapper" style="height: 200px;">
+                    <canvas id="live-recon-chart"></canvas>
                 </div>
             </div>
 
@@ -490,35 +507,9 @@
 
                     <!-- LEFT: DECISION COMPARISON -->
                     <div class="inner-card">
-                        <h4>Decision Comparison</h4>
-                        <div style="display: flex; flex-direction: column; gap: 15px; margin-top: 15px;">
-
-                            <!-- Option A: Approve -->
-                            <div
-                                style="background: rgba(35,134,54,0.1); border-left: 3px solid #238636; padding: 15px; border-radius: 4px;">
-                                <div class="row-between">
-                                    <strong class="text-success">✅ Approve Repair</strong>
-                                    <span class="text-white" id="mgmt-cost-approve">₹25,000</span>
-                                </div>
-                                <div class="small text-muted mt-2">
-                                    • Risk reduced to minimal<br>
-                                    • Equipment reliability restored
-                                </div>
-                            </div>
-
-                            <!-- Option B: Delay -->
-                            <div
-                                style="background: rgba(218,54,51,0.1); border-left: 3px solid #da3633; padding: 15px; border-radius: 4px;">
-                                <div class="row-between">
-                                    <strong class="text-critical">❌ Delay Action</strong>
-                                    <span class="text-white" id="mgmt-cost-delay">~₹4.5 Lakhs</span>
-                                </div>
-                                <div class="small text-muted mt-2" id="mgmt-delay-risk-text">
-                                    • High failure probability (24-36h)<br>
-                                    • Unplanned downtime impacts production
-                                </div>
-                            </div>
-
+                        <h4>Risk vs Action Impact</h4>
+                        <div class="chart-wrapper" style="height: 220px; position: relative;">
+                            <canvas id="risk-impact-chart"></canvas>
                         </div>
                     </div>
 
