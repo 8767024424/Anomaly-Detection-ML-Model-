@@ -118,9 +118,9 @@ async function startLiveStreaming() {
     // Initial fetch
     await fetchLiveStep();
 
-    // Set interval for continuous updates (100ms for TURBO speed)
+    // Set interval for continuous updates (50ms for ULTR-TURBO speed)
     if (APP_STATE.streamInterval) clearInterval(APP_STATE.streamInterval);
-    APP_STATE.streamInterval = setInterval(fetchLiveStep, 100);
+    APP_STATE.streamInterval = setInterval(fetchLiveStep, 50);
 }
 
 async function fetchLiveStep() {
@@ -136,7 +136,10 @@ async function fetchLiveStep() {
             if (APP_STATE.streamInterval) clearInterval(APP_STATE.streamInterval);
             APP_STATE.systemState = 'COMPLETED';
             updateMLStats(data);
-            updateViewComponents();
+
+            // Render the final available state
+            const lastData = APP_STATE.data.length > 0 ? APP_STATE.data[APP_STATE.data.length - 1] : data;
+            updateViewComponents(lastData);
             return;
         }
 
@@ -155,9 +158,9 @@ async function fetchLiveStep() {
             timestamp: data.timestamp
         };
 
-        // 4. Add to historical buffer (max 50 points)
+        // 4. Add to historical buffer (max 100 points)
         APP_STATE.data.push(displayData);
-        if (APP_STATE.data.length > 50) APP_STATE.data.shift();
+        if (APP_STATE.data.length > 100) APP_STATE.data.shift();
 
         // Sync ML Stats
         updateMLStats(data);
@@ -390,108 +393,129 @@ function updateEngineerCharts(data) {
        0. LIVE INTELLIGENCE STREAM (Line Chart)
     ---------------------------------------------------- */
     if (ctxLive) {
-        if (!CHART_INSTANCES['live']) {
-            if (!CHART_INSTANCES['live']) {
-                // Persistent Multi-Sensor Line Chart (10 Sensors)
-                const datasets = SENSOR_ORDER.map((sensor, index) => ({
-                    label: sensor.replace(/_/g, ' '),
-                    data: Array(100).fill(null), // Null to start clean
-                    borderColor: SENSOR_COLORS[sensor] || '#888',
-                    backgroundColor: SENSOR_COLORS[sensor], // Match markers to line
-                    borderWidth: 2,
-                    pointRadius: 3, // Visible Markers (User request)
-                    pointHoverRadius: 5,
-                    tension: 0.1 // Straighter lines (User request)
-                }));
-
-                CHART_INSTANCES['live'] = new Chart(ctxLive, {
-                    type: 'line',
-                    data: {
-                        labels: Array(100).fill(''),
-                        datasets: datasets
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        animation: false,
-                        interaction: {
-                            mode: 'index',
-                            intersect: false,
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                max: 100, // Normalized 0-100%
-                                grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                                ticks: { color: '#8b949e', font: { size: 10 } }
-                            },
-                            x: {
-                                display: false // Keep X clean for stream
-                            }
-                        },
-                        plugins: {
-                            legend: {
-                                display: true,
-                                position: 'top',
-                                labels: {
-                                    color: '#8b949e',
-                                    boxWidth: 8,
-                                    font: { size: 9 },
-                                    usePointStyle: true
-                                }
-                            },
-                            tooltip: {
-                                mode: 'index',
-                                intersect: false
-                            }
-                        }
-                    }
-                });
-            }
+        // PERMANENCE FIX: If chart exists but on a different canvas, destroy it
+        if (CHART_INSTANCES['live'] && CHART_INSTANCES['live'].canvas !== ctxLive) {
+            CHART_INSTANCES['live'].destroy();
+            CHART_INSTANCES['live'] = null;
         }
 
-        if (CHART_INSTANCES['live']) {
-            const chart = CHART_INSTANCES['live'];
-            const currentStates = data.sensor_states || {};
+        if (!CHART_INSTANCES['live']) {
+            // Buffer-Aware Pre-population (Fix for "No lines on stop")
+            const history = APP_STATE.data.slice(-100);
+            const labels = Array(100 - history.length).fill('').concat(history.map(d => d.timestamp));
 
-            // 2. PERSISTENCE CHECK: If no data, STOP updating (Freeze history)
-            if (Object.keys(currentStates).length === 0) {
-                return;
-            }
+            const datasets = SENSOR_ORDER.map((sensor, index) => {
+                const dataPoints = Array(100 - history.length).fill(null).concat(history.map(d => {
+                    const state = d.sensor_states ? d.sensor_states[sensor] : 'NORMAL';
+                    let val = 20;
+                    if (state === 'ANOMALY') val = 70;
+                    if (state === 'CRITICAL') val = 95;
+                    return val + (Math.random() * 4 - 2); // Subtle noise for continuity
+                }));
 
-            const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
-            SENSOR_ORDER.forEach((sensor, index) => {
-                const dataset = chart.data.datasets[index];
-                const state = currentStates[sensor];
-
-                // DATA LOGIC: Map State to Visual Value (0-100%)
-                // Normal: 10-30% (Baseline vibration/temp)
-                // Anomaly: 60-80% (High deviation)
-                // Critical: 90-100% (Danger)
-                let val = 20;
-
-                if (state === 'ANOMALY') val = 70;
-                if (state === 'CRITICAL') val = 95;
-
-                // Add noise for realism
-                val += (Math.random() * 10) - 5;
-                if (val < 0) val = 0;
-
-                dataset.data.push(val);
-                if (dataset.data.length > 100) dataset.data.shift();
+                return {
+                    label: sensor.replace(/_/g, ' '),
+                    data: dataPoints,
+                    borderColor: SENSOR_COLORS[sensor] || '#888',
+                    backgroundColor: SENSOR_COLORS[sensor],
+                    borderWidth: 2,
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                    tension: 0.1
+                };
             });
 
-            chart.data.labels.push(now);
-            if (chart.data.labels.length > 100) chart.data.labels.shift();
-
-            chart.update('none');
+            CHART_INSTANCES['live'] = new Chart(ctxLive, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100, // Normalized 0-100%
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                            ticks: { color: '#8b949e', font: { size: 10 } }
+                        },
+                        x: {
+                            display: false // Keep X clean for stream
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                color: '#8b949e',
+                                boxWidth: 8,
+                                font: { size: 9 },
+                                usePointStyle: true
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    }
+                }
+            });
         }
     }
 
+    if (CHART_INSTANCES['live']) {
+        const chart = CHART_INSTANCES['live'];
+        const currentStates = data.sensor_states || {};
+
+        // 2. PERSISTENCE CHECK: If no data, STOP updating (Freeze history)
+        if (Object.keys(currentStates).length === 0) {
+            return;
+        }
+
+        // FILTER: Show only top 3 anomalous sensors (User Request)
+        const sortedAnomalies = Object.entries(ML_STATE.sensorAnomalyCounts)
+            .sort(([, a], [, b]) => b - a);
+        const top3Keys = sortedAnomalies.slice(0, 3).map(([key]) => key);
+
+        const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+        SENSOR_ORDER.forEach((sensor, index) => {
+            const dataset = chart.data.datasets[index];
+            const state = currentStates[sensor];
+
+            // Update Visibility
+            dataset.hidden = !top3Keys.includes(sensor);
+
+            // DATA LOGIC: Map State to Visual Value (0-100%)
+            let val = 20;
+            if (state === 'ANOMALY') val = 70;
+            if (state === 'CRITICAL') val = 95;
+
+            // Add noise for realism
+            val += (Math.random() * 10) - 5;
+            if (val < 0) val = 0;
+
+            dataset.data.push(val);
+            if (dataset.data.length > 100) dataset.data.shift();
+        });
+
+        chart.data.labels.push(now);
+        if (chart.data.labels.length > 100) chart.data.labels.shift();
+
+        chart.update('none');
+    }
+
     /* ----------------------------------------------------
-       1. PERFORMANCE COMPARISON BAR CHART (UNCHANGED)
-    ---------------------------------------------------- */
+   1. PERFORMANCE COMPARISON BAR CHART (UNCHANGED)
+---------------------------------------------------- */
     /* ----------------------------------------------------
        1. CHART C: SENSOR RELIABILITY SCORE (Historical)
        Formula: 100 - (Anomaly Count / Total Records * 100)
@@ -547,7 +571,7 @@ function updateEngineerCharts(data) {
 
         // Use Global ML State
         const counts = ML_STATE.sensorAnomalyCounts;
-        const totalRecords = APP_STATE.data.length || 1;
+        const totalRecords = ML_STATE.recordNumber || 1;
 
         const labels = [];
         const reliabilityScores = [];
@@ -988,7 +1012,7 @@ function updateManagementView(data) {
         const costK = (maintenanceCost / 1000).toFixed(0);
 
         if (decision === 'APPROVE_MAINTENANCE') {
-            btnApprove.innerHTML = `Approve Maintenance Now – ₹${costK}k`;
+            btnApprove.innerHTML = `Request sent for Maintenance Approval' Maintenance Now – ₹${costK}k`;
             btnApprove.style.backgroundColor = "#238636";
             btnApprove.style.cursor = "pointer";
             btnApprove.disabled = false;
@@ -1019,7 +1043,7 @@ function updateManagementView(data) {
                     const currentCost = ML_STATE.maintenanceCost || 0;
                     const roi = ((currentRisk - currentCost) / 100000).toFixed(2);
 
-                    alert(`✅ Maintenance Approved! \n\nWork order created for next scheduled shutdown. Expected ROI: ₹${roi} Lakhs.`);
+                    alert(`✅ Successfully sent the request for Maintenance Approval! \n\nWork order created for next scheduled shutdown. Expected ROI: ₹${roi} Lakhs.`);
                 }, 1200);
             });
         }

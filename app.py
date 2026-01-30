@@ -72,7 +72,13 @@ def get_live_data():
             "status": "COMPLETED",
             "record_number": len(DATA_RECORDS),
             "total_records": len(DATA_RECORDS),
-            "timestamp": datetime.now().strftime("%H:%M:%S")
+            "timestamp": datetime.now().strftime("%H:%M:%S"),
+            "values": LATEST_INFERENCE_RESULT.get("sensor_values", {}),
+            "reconstruction_error": LATEST_INFERENCE_RESULT.get("reconstruction_loss", 0),
+            "sensor_states": LATEST_INFERENCE_RESULT.get("sensor_states", {}),
+            "sensor_anomaly_counts": LATEST_INFERENCE_RESULT.get("sensor_anomaly_counts", {}),
+            "threshold": LATEST_INFERENCE_RESULT.get("threshold", 0.05),
+            "total_anomalies": LATEST_INFERENCE_RESULT.get("total_anomalies", 0)
         })
     
     # 2. Perform Inference
