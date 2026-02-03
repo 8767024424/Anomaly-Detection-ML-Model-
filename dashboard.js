@@ -1012,7 +1012,7 @@ function updateManagementView(data) {
         const costK = (maintenanceCost / 1000).toFixed(0);
 
         if (decision === 'APPROVE_MAINTENANCE') {
-            btnApprove.innerHTML = `Request sent for Maintenance Approval' Maintenance Now – ₹${costK}k`;
+            btnApprove.innerHTML = `Request sent for Maintenance Approval`;
             btnApprove.style.backgroundColor = "#238636";
             btnApprove.style.cursor = "pointer";
             btnApprove.disabled = false;

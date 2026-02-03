@@ -257,34 +257,6 @@
     <!-- Templates for different views -->
     <template id="tpl-plant-engineer">
         <div class="grid-dashboard">
-            <!-- 3. Risk Banner -->
-            <div id="risk-banner" class="card full-width risk-banner"
-                style="display: none; background: #2f1e1e; border-left: 5px solid #da3633;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <h3 class="text-critical" style="margin: 0; display: flex; align-items: center; gap: 10px;">
-                            ⚠️ SYSTEM RISK: HIGH
-                        </h3>
-                        <p style="margin: 5px 0 0 0; color: #e6edf3;">
-                            <span id="risk-summary-text">Analyzing...</span>
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- LIVE INTELLIGENCE STREAM (Line Chart) -->
-            <div class="card full-width">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h3 style="margin: 0;">Live Intelligence Stream</h3>
-                    <div style="font-size: 0.8rem; color: var(--text-secondary);">
-                        <span style="color: var(--status-critical);">●</span> Anomaly Threshold: <span
-                            id="threshold-val">--</span>
-                    </div>
-                </div>
-                <div class="chart-wrapper" style="height: 200px;">
-                    <canvas id="live-recon-chart"></canvas>
-                </div>
-            </div>
 
             <div class="card full-width">
                 <h3>A. Sensor Health Table</h3>
