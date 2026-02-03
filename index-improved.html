@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Industrial Pump Monitoring | AI-Powered Predictive Maintenance</title>
+
+    <!-- Responsive CSS -->
+    <link rel="stylesheet" href="styles-responsive.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <meta name="description" content="Real-time industrial pump monitoring with AI-powered anomaly detection">
+    <meta name="theme-color" content="#0b0f14">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="logo-area">
+                <h2>AURA <span class="accent">INTELLIGENCE</span></h2>
+                <div class="status-dot"></div>
+            </div>
+
+            <div class="user-profile">
+                <div class="avatar">U</div>
+                <div class="user-info">
+                    <span class="user-name">Demo User</span>
+                    <span class="user-role-label">Select Role</span>
+                </div>
+            </div>
+
+            <div class="role-selector">
+                <button class="role-btn active" data-role="plant-engineer">
+                    <span class="icon">🔧</span>
+                    <span>Plant Engineer</span>
+                </button>
+                <button class="role-btn" data-role="plant-head">
+                    <span class="icon">🏭</span>
+                    <span>Plant Head</span>
+                </button>
+                <button class="role-btn" data-role="management">
+                    <span class="icon">💼</span>
+                    <span>Management</span>
+                </button>
+                <button class="role-btn" data-role="admin">
+                    <span class="icon">🛠️</span>
+                    <span>Admin</span>
+                </button>
+            </div>
+
+            <div class="system-status">
+                <h3>System Health</h3>
+                <div class="status-item">
+                    <span>Data Stream:</span>
+                    <span id="sidebar-stream-status" class="status-ok">ACTIVE</span>
+                </div>
+                <div class="status-item">
+                    <span>ML Model:</span>
+                    <span id="sidebar-ml-status" class="status-ok">LOADED</span>
+                </div>
+                <div class="status-item">
+                    <span>Latency:</span>
+                    <span id="inference-latency">--</span> ms
+                </div>
+                <div class="status-item">
+                    <span>RAM:</span>
+                    <span id="memory-usage">--</span> MB
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-bar">
+                <h1 id="page-title">Maintenance Console</h1>
+                <div class="top-controls">
+                    <span class="live-indicator">
+                        <span class="blink">●</span> LIVE
+                    </span>
+                    <span id="current-time">--:--:--</span>
+                </div>
+            </header>
+
+            <div id="dashboard-view" class="view-container">
+                <!-- Dynamic content loaded by JS -->
+            </div>
+        </main>
+
+        <!-- AI Copilot Panel -->
+        <aside class="copilot-panel">
+            <div class="copilot-header">
+                <h3>AI Assistant</h3>
+            </div>
+            <div class="chat-history" id="chat-history">
+                <div class="msg ai">
+                    Hello. I am monitoring the pump system. How can I help you today?
+                </div>
+            </div>
+            <div class="chat-input-area">
+                <input type="text" id="user-input" placeholder="Ask me anything...">
+                <button id="send-btn">➤</button>
+            </div>
+            <div class="quick-prompts">
+                <button class="chip">Highest anomaly sensor</button>
+                <button class="chip">Sensor health summary</button>
+                <button class="chip">Sensor failure risk</button>
+                <button class="chip">Cost impact</button>
+            </div>
+        </aside>
+    </div>
+
+    <!-- ============================= -->
+    <!-- VIEW TEMPLATES -->
+    <!-- ============================= -->
+
+    <!-- Plant Engineer View -->
+    <template id="tpl-plant-engineer">
+        <div class="grid-dashboard">
+
+            <!-- Sensor Health Table -->
+            <div class="card full-width">
+                <h3>A. Real-Time Sensor Health</h3>
+                <div class="table-wrapper">
+                    <table id="sensor-table">
+                        <thead>
+                            <tr>
+                                <th>Sensor</th>
+                                <th>Status</th>
+                                <th>Value</th>
+                                <th>Anomaly Count</th>
+                                <th>Interpretation</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">Loading sensor data...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Historical Analysis -->
+            <div class="card full-width">
+                <h3>Historical Analysis</h3>
+
+                <div class="grid-2">
+                    <!-- B. Anomaly Distribution -->
+                    <div class="card">
+                        <h4>B. Anomaly Distribution</h4>
+                        <div class="chart-wrapper" style="height: 260px;">
+                            <canvas id="anomaly-chart"></canvas>
+                        </div>
+                        <div id="engineer-root-cause" class="text-center small mt-2 text-muted">
+                            Analyzing patterns...
+                        </div>
+                    </div>
+
+                    <!-- C. Reliability Score -->
+                    <div class="card">
+                        <h4>C. Reliability Trend</h4>
+                        <div class="chart-wrapper" style="height: 260px;">
+                            <canvas id="trend-chart"></canvas>
+                        </div>
+                        <div class="text-muted small mt-2 text-center">
+                            Real-time reconstruction error vs threshold
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Predictive Maintenance Timeline (Replaced D) -->
+            <div class="card full-width">
+                <h3>D. Predictive Maintenance Timeline</h3>
+                <div id="engineer-alerts">
+                    <p class="text-muted">Loading maintenance events...</p>
+                </div>
+                <div class="small text-muted mt-2" style="padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px;">
+                    Data Source: Live stream from industrial pump sensors | ML: LSTM Autoencoder
+                </div>
+            </div>
+
+        </div>
+    </template>
+
+    <!-- Plant Head View -->
+    <template id="tpl-plant-head">
+        <div class="grid-dashboard">
+
+            <!-- KPI Row -->
+            <div class="grid-4">
+                <div class="card kpi-card status-blue">
+                    <h3 class="text-muted small">TOTAL MONITORED</h3>
+                    <div class="metric-big">2000</div>
+                    <div class="small text-muted mt-1">Records processed</div>
+                </div>
+                <div class="card kpi-card status-red">
+                    <h3 class="text-muted small">TOP FAULT SENSORS</h3>
+                    <div id="ph-top-faults" style="margin-top: 8px; font-size: 0.9rem;">
+                        Loading...
+                    </div>
+                </div>
+                <div class="card kpi-card status-amber">
+                    <h3 class="text-muted small">FAILURE WINDOW</h3>
+                    <div class="metric-big text-warning">24-36h</div>
+                    <div class="small text-muted mt-1">Estimated time</div>
+                </div>
+                <div class="card kpi-card status-green">
+                    <h3 class="text-muted small">RISK POST-REPAIR</h3>
+                    <div class="metric-big text-success">Low</div>
+                    <div class="small text-muted mt-1">80% reduction</div>
+                </div>
+            </div>
+
+            <!-- Context Alert -->
+            <div style="padding: 12px 16px; background: rgba(210, 153, 34, 0.1); border-left: 4px solid #d29922; border-radius: 6px; margin-bottom: 16px;">
+                Status requires attention within the next 24-36 hours to avoid downtime.
+            </div>
+
+            <!-- Risk Analysis -->
+            <div class="card full-width">
+                <div class="grid-2">
+                    <div class="card">
+                        <h4>Risk Composition</h4>
+                        <div style="display: flex; flex-direction: column; justify-content: center; min-height: 120px;">
+                            <div style="width: 100%; height: 30px; background: var(--bg-highlight); border-radius: 6px; display: flex; overflow: hidden;">
+                                <div style="width: 40%; background: var(--status-ok); height: 100%;"></div>
+                                <div style="width: 35%; background: var(--status-warning); height: 100%;"></div>
+                                <div style="width: 25%; background: var(--status-critical); height: 100%;"></div>
+                            </div>
+                            <div class="mt-2" style="display: flex; justify-content: space-around; font-size: 0.8rem;">
+                                <span style="color: var(--status-ok);">Normal 40%</span>
+                                <span style="color: var(--status-warning);">Warning 35%</span>
+                                <span style="color: var(--status-critical);">Critical 25%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h4>Risk Impact Chart</h4>
+                        <div class="chart-wrapper" style="height: 200px;">
+                            <canvas id="risk-impact-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Remaining Useful Life -->
+            <div class="card full-width">
+                <h3>Remaining Useful Life (RUL) - Critical Sensors</h3>
+                <div id="rulContainer" style="margin-top: 12px;">
+                    <p class="text-muted">Calculating RUL...</p>
+                </div>
+            </div>
+
+            <!-- Action Recommendations -->
+            <div class="grid-3">
+                <div class="card" style="border-left: 4px solid var(--status-critical);">
+                    <h4 class="text-critical">Immediate Action</h4>
+                    <ul class="small" style="padding-left: 20px; margin-top: 8px;">
+                        <li>Reduce load and inform maintenance lead</li>
+                        <li>Monitor bearing temperature closely</li>
+                    </ul>
+                </div>
+                <div class="card" style="border-left: 4px solid var(--status-warning);">
+                    <h4 class="text-warning">Next 24 Hours</h4>
+                    <ul class="small" style="padding-left: 20px; margin-top: 8px;">
+                        <li>Perform focused inspection</li>
+                        <li>Prepare replacement parts</li>
+                    </ul>
+                </div>
+                <div class="card" style="border-left: 4px solid var(--status-ok);">
+                    <h4 class="text-success">Planned Action</h4>
+                    <ul class="small" style="padding-left: 20px; margin-top: 8px;">
+                        <li>Schedule controlled shutdown if risk escalates</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Executive Summary -->
+            <div class="card full-width" style="border-left: 4px solid var(--status-critical); font-weight: 600; font-size: 1.1rem;">
+                The system is moving toward a high-risk operating state. Preventive action in the next 24-36 hours can significantly reduce downtime.
+            </div>
+
+        </div>
+    </template>
+
+    <!-- Management View -->
+    <template id="tpl-management">
+        <div class="grid-dashboard">
+
+            <!-- Financial KPIs -->
+            <div class="grid-4">
+                <div class="card kpi-card status-red">
+                    <h3 class="text-muted small">MONEY AT RISK</h3>
+                    <div class="metric-big text-critical" id="mgmt-money-risk">₹4.5L</div>
+                    <div class="small text-muted mt-1">If no action taken</div>
+                </div>
+                <div class="card kpi-card status-amber">
+                    <h3 class="text-muted small">FAILURE WINDOW</h3>
+                    <div class="metric-big text-warning">24-36h</div>
+                    <div class="small text-muted mt-1">Estimated time to failure</div>
+                </div>
+                <div class="card kpi-card status-green">
+                    <h3 class="text-muted small">POTENTIAL SAVINGS</h3>
+                    <div class="metric-big text-success">₹3.3L</div>
+                    <div class="small text-muted mt-1">With preventive action</div>
+                </div>
+                <div class="card kpi-card status-blue">
+                    <h3 class="text-muted small">DECISION STATUS</h3>
+                    <div class="metric-big">Pending</div>
+                    <div class="small text-muted mt-1">Action required</div>
+                </div>
+            </div>
+
+            <!-- Context -->
+            <div style="padding: 12px 16px; background: rgba(218, 54, 51, 0.1); border-left: 4px solid #da3633; border-radius: 6px; margin-bottom: 16px;">
+                System shows high failure risk within 24-36 hours. Approving maintenance now avoids major financial loss.
+            </div>
+
+            <!-- Financial Analysis -->
+            <div class="card full-width">
+                <div class="grid-2">
+                    <div class="card">
+                        <h4>Risk vs Action Impact</h4>
+                        <div class="chart-wrapper" style="height: 220px;">
+                            <canvas id="risk-impact-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h4>Cost Breakdown</h4>
+                        <div id="mgmt-cost-drivers" style="margin-top: 15px;">
+                            <p class="text-muted">Analyzing cost drivers...</p>
+                        </div>
+                        <div class="small text-muted mt-3">
+                            Fixing top contributors removes 70% of financial risk.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Executive Summary -->
+            <div class="card full-width" style="border-left: 4px solid var(--status-critical); font-weight: 600; font-size: 1.1rem;">
+                System shows high failure risk within 24-36 hours. Approving maintenance now avoids major financial loss and ensures operational continuity.
+            </div>
+
+            <!-- Decision Button -->
+            <div class="text-center mt-2">
+                <button class="btn-success" style="padding: 15px 40px; font-size: 1.1rem;">
+                    Request sent for Maintenance Approval
+                </button>
+                <div class="small text-muted mt-2">
+                    Decision valid for next 24 hours
+                </div>
+            </div>
+
+        </div>
+    </template>
+
+    <!-- Admin View -->
+    <template id="tpl-admin">
+        <div class="grid-dashboard">
+
+            <!-- System Status Banner -->
+            <div class="card full-width" id="admin-assurance-banner" style="background: rgba(35,134,54,0.1); border: 2px solid #238636; text-align: center; padding: 30px;">
+                <h2 class="text-success" style="margin: 0; font-size: 1.8rem;">✅ SYSTEM RELIABLE</h2>
+                <p class="text-muted" style="margin: 10px 0 0 0;">All critical system checks passed. Platform is stable.</p>
+            </div>
+
+            <!-- System Flow Health -->
+            <div class="grid-2">
+                <div class="card">
+                    <h3>SYSTEM FLOW HEALTH</h3>
+                    <div style="margin-top: 15px;">
+                        <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--bg-highlight);">
+                            <span class="text-muted">Data Source Connected</span>
+                            <strong class="text-success">✔ Verified</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--bg-highlight);">
+                            <span class="text-muted">Dataset Loaded</span>
+                            <strong class="text-success">✔ Verified</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--bg-highlight);">
+                            <span class="text-muted">ML Inference Active</span>
+                            <strong class="text-success">✔ Verified</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--bg-highlight);">
+                            <span class="text-muted">Database Sync</span>
+                            <strong class="text-success">✔ Verified</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; padding: 10px 0;">
+                            <span class="text-muted">Dashboard Views</span>
+                            <strong class="text-success">✔ Verified</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>TRUST INDICATORS</h3>
+                    <div class="grid-2" style="margin-top: 15px; gap: 10px;">
+                        <div style="background: #161b22; padding: 15px; border-radius: 6px; text-align: center;">
+                            <div class="small text-muted">Last Data Update</div>
+                            <div style="font-weight: 700; margin-top: 4px;" id="admin-last-data">Just now</div>
+                        </div>
+                        <div style="background: #161b22; padding: 15px; border-radius: 6px; text-align: center;">
+                            <div class="small text-muted">Last ML Update</div>
+                            <div style="font-weight: 700; margin-top: 4px;" id="admin-last-ml">Just now</div>
+                        </div>
+                        <div style="background: #161b22; padding: 15px; border-radius: 6px; text-align: center;">
+                            <div class="small text-muted">Data Consistency</div>
+                            <div style="font-weight: 700; margin-top: 4px; color: var(--status-ok);">Verified</div>
+                        </div>
+                        <div style="background: #161b22; padding: 15px; border-radius: 6px; text-align: center;">
+                            <div class="small text-muted">Sync Status</div>
+                            <div style="font-weight: 700; margin-top: 4px; color: var(--status-ok);">Up to Date</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Activity -->
+            <div class="card full-width">
+                <h3>CURRENT SYSTEM ACTIVITY</h3>
+                <div style="background: #0d1117; padding: 20px; border-radius: 6px; border-left: 3px solid var(--accent-color); margin-top: 15px;">
+                    <ul class="text-muted small" style="line-height: 1.8; padding-left: 20px;">
+                        <li>Monitoring live data stream for new updates</li>
+                        <li>ML inference engine processing sensor data</li>
+                        <li>Database synchronization active</li>
+                        <li>No admin action required at this time</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Admin Controls -->
+            <div class="card full-width">
+                <h3>ADMIN CONTROLS</h3>
+                <div class="grid-3" style="margin-top: 15px;">
+                    <button id="btn-reload-data" class="btn-primary">
+                        🔄 Reload Data
+                    </button>
+                    <button id="btn-refresh-ml" class="btn-primary">
+                        🔁 Refresh ML
+                    </button>
+                    <button id="btn-resync-ui" class="btn-primary">
+                        📥 Re-Sync UI
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </template>
+
+    <!-- Chart.js Library -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="dashboard-improved.js"></script>
+</body>
+</html>
