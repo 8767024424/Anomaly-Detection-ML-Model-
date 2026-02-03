@@ -278,14 +278,14 @@
             <!-- PARENT CARD -->
             <div class="card full-width">
 
-                <h3>Historical Sensor Analysis</h3>
+                <h3>Sensor Analysis</h3>
 
                 <!-- TWO CARDS ROW -->
                 <div class="dual-card-row">
 
                     <!-- CARD 1 -->
                     <div class="inner-card">
-                        <h4>B. Historical Anomaly Distribution</h4>
+                        <h4>B. Anomaly Distribution</h4>
 
                         <div class="chart-wrapper" style="height: 260px; position: relative;">
                             <!-- Root Cause Badge -->
@@ -298,13 +298,13 @@
 
                     <!-- CARD 2 -->
                     <div class="inner-card">
-                        <h4>C. Sensor Reliability Score (Historical)</h4>
+                        <h4>C. Sensor Reliability Score</h4>
 
                         <div class="chart-wrapper" style="height: 260px;">
                             <canvas id="trend-chart"></canvas>
                         </div>
 
-                        <div class="text-muted small mt-2"
+                        <div class="text-muted small mt-2" id="reliability-observation"
                             style="text-align: center; border-top: 1px solid #30363d; padding-top: 6px;">
                             💡 Observation: High vibration historically correlates with bearing temperature rise.
                         </div>
@@ -315,7 +315,7 @@
 
         </div>
         <div class="card full-width bg-darker">
-            <h3>D. Historical Reliability & Risk Console</h3>
+            <h3>D.Reliability & Risk Console</h3>
             <div class="action-panel-content" id="engineer-alerts">
                 <!-- Dynamic Content -->
             </div>
@@ -330,8 +330,8 @@
 
     <template id="tpl-plant-head">
         <div class="grid-dashboard">
-            <!-- 1. TOP KPI ROW (Big Cards) -->
-            <div class="grid-2">
+            <!-- 1. TOP KPI Row -->
+            <div class="grid-2 full-width">
                 <div class="card kpi-card status-blue">
                     <h3 class="text-muted small">TOTAL RECORDS</h3>
                     <div class="metric-big text-white">2000</div>
@@ -345,95 +345,44 @@
                 </div>
             </div>
 
-            <!-- ONE-LINE CONTEXT ROW -->
-            <div
-                style="margin-bottom: 20px; font-size: 1rem; color: #8b949e; background: #151a21; padding: 10px 15px; border-radius: 6px; border-left: 4px solid #d29922;">
-                ℹ️ Current status requires attention within the next 24–36 hours to avoid downtime.
-            </div>
-
-            <!-- 2. RISK UNDERSTANDING (Visuals) -->
-            <div class="card full-width">
-                <div class="grid-2">
-                    <!-- A. Risk Composition -->
-                    <div class="inner-card">
-                        <h4>Overall Risk Composition</h4>
-                        <div
-                            style="display: flex; flex-direction: column; justify-content: center; height: 100%; min-height: 120px;">
-                            <div class="risk-composition-bar">
-                                <div class="risk-normal" style="width: 40%"></div>
-                                <div class="risk-warning" style="width: 35%"></div>
-                                <div class="risk-critical" style="width: 25%"></div>
-                            </div>
-                            <!-- Legend Removed for Clarity -->
-                        </div>
-                    </div>
-
-                    <!-- B. Primary Risk Drivers -->
-                    <div class="inner-card">
-                        <h4>Primary Risk Drivers</h4>
-                        <div id="ph-risk-drivers"
-                            style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
-                            <!-- Static Default Content -->
-                            <div class="driver-card high-impact">
-                                <span class="driver-name">🔴 Mechanical Stress – High Impact</span>
-                            </div>
-                            <div class="driver-card medium-impact">
-                                <span class="driver-name">🟠 Thermal Load – Medium Impact</span>
-                            </div>
-                            <div class="driver-card low-impact">
-                                <span class="driver-name">🟢 Process Variability – Low Impact</span>
-                            </div>
-                        </div>
+            <!-- 2. RISK & STATUS -->
+            <!-- A. Risk Composition -->
+            <div class="card">
+                <h3 class="text-muted small">OVERALL RISK COMPOSITION</h3>
+                <div
+                    style="display: flex; flex-direction: column; justify-content: center; height: 100%; min-height: 100px;">
+                    <div class="risk-composition-bar">
+                        <div class="risk-normal" style="width: 40%"></div>
+                        <div class="risk-warning" style="width: 35%"></div>
+                        <div class="risk-critical" style="width: 25%"></div>
                     </div>
                 </div>
             </div>
 
-            <!-- 2.5. REMAINING USEFUL LIFE (RUL) -->
-            <div class="card rul-card">
-                <h3>Remaining Useful Life (RUL) – Sensors</h3>
+            <!-- B. Status Warning Card -->
+            <div class="card"
+                style="border-left: 4px solid #d29922; display: flex; align-items: center; justify-content: center;">
+                <div style="font-size: 1.15rem; color: #e6edf3; line-height: 1.6; text-align: center; padding: 10px;">
+                    ℹ️ Current status requires attention within the next 24–36 hours to avoid downtime.
+                </div>
+            </div>
+
+            <!-- 3. REMAINING USEFUL LIFE (RUL) - Full Width -->
+            <div class="card full-width rul-card">
+                <h3 class="text-muted small">REMAINING USEFUL LIFE (RUL) – SENSORS</h3>
                 <div id="rulContainer"></div>
-            </div>
-
-
-            <!-- 3. ACTION RECOMMENDATIONS -->
-            <div class="grid-3" id="recommendation-grid">
-                <div class="recommendation-box critical-border">
-                    <h4 class="text-critical">⚡ Immediate <span
-                            style="font-size: 0.7rem; background: rgba(218,54,51,0.2); border: 1px solid #da3633; padding: 2px 6px; border-radius: 4px; margin-left: 10px;">HIGH
-                            PRIORITY</span></h4>
-                    <ul class="small-list" id="rec-immediate">
-                        <li>Reduce load and inform maintenance lead</li>
-                    </ul>
-                </div>
-                <div class="recommendation-box warning-border">
-                    <h4 class="text-warning">⏱ Next 24 Hours <span
-                            style="font-size: 0.7rem; background: rgba(210,153,34,0.2); border: 1px solid #d29922; padding: 2px 6px; border-radius: 4px; margin-left: 10px;">MEDIUM
-                            PRIORITY</span></h4>
-                    <ul class="small-list" id="rec-shortterm">
-                        <li>Perform focused inspection</li>
-                    </ul>
-                </div>
-                <div class="recommendation-box safe-border">
-                    <h4 class="text-success">🛠 Planned Action <span
-                            style="font-size: 0.7rem; background: rgba(35,134,54,0.2); border: 1px solid #238636; padding: 2px 6px; border-radius: 4px; margin-left: 10px;">LOW
-                            PRIORITY</span></h4>
-                    <ul class="small-list" id="rec-planned">
-                        <li>Prepare controlled shutdown if risk escalates</li>
-                    </ul>
-                </div>
             </div>
 
             <!-- 4. EXECUTIVE SUMMARY -->
             <div class="card full-width">
-                <div class="executive-summary" id="ph-executive-summary"
-                    style="border-left: 4px solid #da3633; font-size: 1.2rem; font-weight: 600; padding: 15px;">
+                <div class="executive-summary" id="ph-executive-summary" style="border-left: 5px solid #f85149;">
                     The system is moving toward a high-risk operating state. Preventive action in the next 24–36 hours
                     can significantly reduce downtime.
                 </div>
             </div>
 
             <!-- DATA FRESHNESS FOOTER -->
-            <div style="text-align: right; color: #484f58; font-size: 0.75rem; margin-top: 10px;">
+            <div class="full-width" style="text-align: right; color: #484f58; font-size: 0.75rem; margin-top: 10px;">
                 Data last updated: <span id="data-timestamp">Just now</span>
             </div>
         </div>
@@ -442,8 +391,8 @@
     <template id="tpl-management">
         <div class="grid-dashboard">
 
-            <!-- 1. TOP KPI ROW (Big Cards) -->
-            <div class="grid-4">
+            <!-- 1. TOP KPI SECTION -->
+            <div class="grid-4 full-width">
                 <div class="card kpi-card status-red">
                     <h3 class="text-muted small">💸 MONEY AT RISK</h3>
                     <div class="metric-big text-critical" id="mgmt-money-risk">₹4.5L</div>
@@ -452,7 +401,7 @@
                 <div class="card kpi-card status-amber">
                     <h3 class="text-muted small">⏱️ FAILURE WINDOW</h3>
                     <div class="metric-big text-warning" id="mgmt-time-failure">24–36h</div>
-                    <div class="small text-muted mt-1">Estimated time to failure</div>
+                    <div class="small text-muted mt-1">Estimated time failure</div>
                 </div>
                 <div class="card kpi-card status-green">
                     <h3 class="text-muted small">🛡️ RISK POST-REPAIR</h3>
@@ -460,39 +409,35 @@
                     <div class="small text-muted mt-1">~80% Risk Reduced</div>
                 </div>
                 <div class="card kpi-card status-blue">
-                    <div class="kpi-icon">✅</div>
                     <h3 class="text-muted small">DECISION STATUS</h3>
                     <div class="metric-big text-white" id="mgmt-action-status">Pending</div>
                     <div class="small text-muted mt-1">Action required</div>
                 </div>
             </div>
 
-            <!-- ONE-LINE CONTEXT -->
-            <div id="mgmt-context-bar"
-                style="margin-bottom: 20px; font-size: 1rem; color: #8b949e; background: #151a21; padding: 10px 15px; border-radius: 6px; border-left: 4px solid #da3633;">
-                ℹ️ Initializing financial risk assessment...
-            </div>
+
 
             <!-- 2. DECISION & DRIVERS (Split View) -->
             <div class="card full-width">
                 <div class="grid-2">
 
                     <!-- LEFT: DECISION COMPARISON -->
-                    <div class="inner-card">
+                    <div class="inner-card" style="min-height: 400px;">
                         <h4>Risk vs Action Impact</h4>
-                        <div class="chart-wrapper" style="height: 220px; position: relative;">
+                        <div class="chart-wrapper" style="height: 350px; position: relative;">
                             <canvas id="risk-impact-chart"></canvas>
                         </div>
                     </div>
 
                     <!-- RIGHT: COST DRIVERS (Visual Bars) -->
-                    <div class="inner-card">
+                    <div class="inner-card" style="min-height: 400px;">
                         <h4>Where the Financial Risk Is Coming From</h4>
                         <div id="mgmt-cost-drivers"
-                            style="display: flex; flex-direction: column; gap: 12px; margin-top: 15px;">
+                            style="display: flex; flex-direction: column; gap: 18px; margin-top: 25px;">
                             <!-- DYNAMIC INJECTION TARGET -->
                         </div>
-                        <div class="small text-muted mt-3">
+                        <div class="small text-muted mt-4"
+                            style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px;">
                             <i>Fixing top contributors removes >70% of financial risk.</i>
                         </div>
                     </div>
@@ -502,23 +447,24 @@
 
             <!-- 3. EXECUTIVE SUMMARY -->
             <div class="card full-width">
-                <div class="executive-summary" id="mgmt-executive-summary"
-                    style="border-left: 4px solid #da3633; font-size: 1.2rem; font-weight: 600; padding: 15px;">
+                <div class="executive-summary" id="mgmt-executive-summary" style="border-left: 5px solid #f85149;">
                     System shows high failure risk within 24–36 hours. Approving maintenance now avoids major financial
                     loss.
                 </div>
             </div>
 
             <!-- 4. ACTION BUTTON -->
-            <div style="text-align: center; margin-top: 10px; margin-bottom: 40px;">
+            <div style="text-align: center; margin-top: 30px; margin-bottom: 40px;" class="full-width">
                 <button class="btn-primary" id="btn-approve-repair"
-                    style="font-size: 1.2rem; padding: 15px 40px; background-color: #238636; border: none; border-radius: 6px; cursor: pointer; color: white; font-weight: 700; box-shadow: 0 4px 12px rgba(35, 134, 54, 0.4);">
+                    style="font-size: 1.2rem; padding: 18px 50px; background-color: #238636; border: none; border-radius: 8px; cursor: pointer; color: white; font-weight: 700; box-shadow: 0 4px 15px rgba(35, 134, 54, 0.4); transition: all 0.3s ease;">
                     Request sent for Maintenance Approval
                 </button>
-                <div style="margin-top: 12px; font-size: 0.9rem; color: #8b949e; font-style: italic;">
+                <div style="margin-top: 15px; font-size: 0.9rem; color: #8b949e; font-style: italic;">
                     Decision valid for next 24 hours
                 </div>
             </div>
+
+
 
             <!-- FOOTER -->
             <div style="text-align: right; color: #484f58; font-size: 0.75rem;">
