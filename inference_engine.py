@@ -71,6 +71,14 @@ class AnomalyInferenceEngine:
                 print(f"Threshold loaded: {self.threshold:.5f}")
         except Exception as e:
             print(f"Warning: Could not load assets ({e}). Falling back to simulation logic.")
+    
+    def reset_state(self):
+        """Reset the inference state when looping the dataset."""
+        print("[RESET] Resetting inference engine state for new loop...")
+        self.buffer.clear()
+        self.previous_sensor_states = {f: "NORMAL" for f in FEATURES}
+
+
 
     def get_memory_usage(self):
         """Approximate RAM usage of the current process in MB."""

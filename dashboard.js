@@ -132,12 +132,12 @@ async function fetchLiveStep() {
 
         // Handle Completion (dataset finished)
         if (data.status === 'COMPLETED') {
-            console.log("🏁 DATASET REPLAY COMPLETED");
+            console.log("🏁 DATASET REPLAY COMPLETED - Stopping at record 2000");
             if (APP_STATE.streamInterval) clearInterval(APP_STATE.streamInterval);
             APP_STATE.systemState = 'COMPLETED';
             updateMLStats(data);
 
-            // Render the final available state
+            // Render the final available state with last known values
             const lastData = APP_STATE.data.length > 0 ? APP_STATE.data[APP_STATE.data.length - 1] : data;
             updateViewComponents(lastData);
             return;
@@ -577,24 +577,42 @@ function updateEngineerCharts(data) {
         const reliabilityScores = [];
         const colors = [];
 
+        let maxCount = -1;
+        let worstSensor = "";
+
         SENSOR_ORDER.forEach(sensor => {
             const count = counts[sensor] || 0;
-            // Reliability based on frequency of anomalies in the session
+            if (count > maxCount) {
+                maxCount = count;
+                worstSensor = sensor.replace(/_/g, ' ');
+            }
+            // Reliability based on frequency of anomalies (Stricter Industrial Scale)
             const reliability = Math.max(0, 100 - ((count / totalRecords) * 100));
 
             labels.push(sensor.replace(/_/g, ' '));
             reliabilityScores.push(reliability.toFixed(1));
 
-            // Color based on score (Task 4 rules)
-            if (reliability < 80) colors.push('#da3633'); // RED -> CRITICAL
-            else if (reliability < 95) colors.push('#d29922'); // ORANGE -> WARNING
-            else colors.push('#238636'); // GREEN -> NORMAL
+            // Color based on absolute ANOMALY COUNT (User Request)
+            // Fix: Base color on count directly so they start green
+            if (count > 40) colors.push('#da3633');      // RED -> CRITICAL
+            else if (count > 30) colors.push('#d29922'); // ORANGE -> WARNING
+            else colors.push('#238636');                // GREEN -> NORMAL
         });
 
         chart.data.labels = labels;
         chart.data.datasets[0].data = reliabilityScores;
         chart.data.datasets[0].backgroundColor = colors;
         chart.update('none');
+
+        // Update Dynamic Observation (Task 4)
+        const obsEl = document.getElementById('reliability-observation');
+        if (obsEl) {
+            if (maxCount > 0) {
+                obsEl.innerHTML = `💡 Observation: <strong>${worstSensor}</strong> has persistent anomalies. Perform maintenance inspection soon.`;
+            } else {
+                obsEl.innerHTML = `💡 Observation: No historical anomalies detected. System is stable.`;
+            }
+        }
     }
 
     /* ----------------------------------------------------
@@ -910,21 +928,7 @@ function updateManagementView(data) {
         actionStatusEl.className = (decision === 'APPROVE_MAINTENANCE') ? "metric-big text-critical" : "metric-big text-success";
     }
 
-    // 2.5 New Dynamic Comparison Elements
-    const contextBar = document.getElementById('mgmt-context-bar');
-    if (contextBar) {
-        const riskL = (moneyAtRisk / 100000).toFixed(2);
-        if (ML_STATE.riskLevel === 'LEARNING') {
-            contextBar.innerHTML = `⏳ System Learning... Establishing financial baseline.`;
-            contextBar.style.borderLeftColor = "#58a6ff";
-        } else if (decision === 'APPROVE_MAINTENANCE') {
-            contextBar.innerHTML = `ℹ️ Financial exposure is high. Immediate maintenance avoids critical ₹${riskL}L loss.`;
-            contextBar.style.borderLeftColor = "#da3633";
-        } else {
-            contextBar.innerHTML = `ℹ️ System stable. Current risk of ₹${riskL}L is below intervention threshold.`;
-            contextBar.style.borderLeftColor = "#238636";
-        }
-    }
+
 
     const costApproveEl = document.getElementById('mgmt-cost-approve');
     if (costApproveEl) {
@@ -967,7 +971,7 @@ function updateManagementView(data) {
                 </div>
              `;
         } else {
-            sorted.slice(0, 3).forEach(([key, count]) => {
+            sorted.slice(0, 5).forEach(([key, count]) => {
                 const percentage = totalAnomalies > 0 ? ((count / totalAnomalies) * 100).toFixed(0) : 0;
                 const costShare = totalAnomalies > 0 ? (count / totalAnomalies) * moneyAtRisk : 0;
 
@@ -992,7 +996,7 @@ function updateManagementView(data) {
     const summaryEl = document.getElementById('mgmt-executive-summary');
     if (summaryEl) {
         if (APP_STATE.systemState === 'COMPLETED') {
-            summaryEl.innerHTML = `🏁 Dataset Replay Completed (1000 / 1000). All projected risks have been logged. Asset health frozen at final state.`;
+            summaryEl.innerHTML = `🛡️ <strong>Session Analysis Concluded:</strong> All operational data processed. Final risk assessment confirms a potential exposure of <strong>₹${(ML_STATE.moneyAtRisk / 100000).toFixed(2)} Lakhs</strong>. Maintenance strategy has been optimized for efficiency. Ready for next monitoring cycle.`;
             summaryEl.style.borderLeftColor = "#58a6ff";
         } else if (ML_STATE.riskLevel === 'LEARNING') {
             summaryEl.innerHTML = `System is currently in LEARNING mode. Baseline financial risk will be available after sequence buffer is full.`;
@@ -1005,6 +1009,7 @@ function updateManagementView(data) {
             summaryEl.style.borderLeftColor = "#238636";
         }
     }
+
 
     // 5. Action Button Logic (Dynamic)
     const btnApprove = document.getElementById('btn-approve-repair');
@@ -1257,13 +1262,140 @@ function updateAdminView(data) {
     updateText('admin-last-ml', now, 'text-white');
 
     // 5. Bind Admin Actions
-    setupAdminButton('btn-reload-data', "Dataset Reloaded", "Fetching latest CSV...");
-    setupAdminButton('btn-refresh-ml', "Resetting Counters", "Calling /api/admin/reset-counters...");
+    setupAdminControls();
+}
+
+function setupAdminControls() {
+    // 1. RELOAD DATA - File Upload
+    const reloadBtn = document.getElementById('btn-reload-data');
+    if (reloadBtn && !reloadBtn.dataset.bound) {
+        reloadBtn.dataset.bound = "true";
+        reloadBtn.onclick = () => {
+            // Create hidden file input
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = '.csv';
+            fileInput.style.display = 'none';
+
+            fileInput.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                // Validate file type
+                if (!file.name.endsWith('.csv')) {
+                    alert('❌ Error: Please select a CSV file');
+                    return;
+                }
+
+                // Show loading state
+                const originalText = reloadBtn.innerHTML;
+                reloadBtn.innerHTML = "⏳ Uploading...";
+                reloadBtn.disabled = true;
+
+                try {
+                    // Create FormData
+                    const formData = new FormData();
+                    formData.append('file', file);
+
+                    // Upload file
+                    const response = await fetch('/api/admin/upload-data', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok && result.success) {
+                        alert(`✅ Data Reloaded Successfully!\n\nFile: ${result.filename}\nRecords: ${result.total_records}\n\nThe dashboard will now restart with the new data.`);
+
+                        // Reset frontend state
+                        APP_STATE.data = [];
+                        APP_STATE.systemState = 'LEARNING';
+                        ML_STATE.totalAnomalies = 0;
+                        ML_STATE.recordNumber = 0;
+                        ML_STATE.totalRecords = result.total_records;
+
+                        // Restart streaming
+                        if (APP_STATE.streamInterval) clearInterval(APP_STATE.streamInterval);
+                        startLiveStreaming();
+
+                        // Refresh view
+                        renderDashboard();
+                    } else {
+                        alert(`❌ Upload Failed\n\n${result.error || 'Unknown error'}`);
+                    }
+                } catch (error) {
+                    alert(`❌ Upload Error\n\n${error.message}`);
+                } finally {
+                    reloadBtn.innerHTML = originalText;
+                    reloadBtn.disabled = false;
+                    document.body.removeChild(fileInput);
+                }
+            };
+
+            // Trigger file selector
+            document.body.appendChild(fileInput);
+            fileInput.click();
+        };
+    }
+
+    // 2. REFRESH ML - Reset Counters
     const refreshBtn = document.getElementById('btn-refresh-ml');
-    if (refreshBtn) {
+    if (refreshBtn && !refreshBtn.dataset.bound) {
+        refreshBtn.dataset.bound = "true";
         refreshBtn.onclick = async () => {
-            await fetch('/api/admin/reset-counters', { method: 'POST' });
-            alert("Anomaly Counters Reset Successful.");
+            const originalText = refreshBtn.innerHTML;
+            refreshBtn.innerHTML = "⏳ Resetting...";
+            refreshBtn.disabled = true;
+
+            try {
+                const response = await fetch('/api/admin/reset-counters', { method: 'POST' });
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    // Reset frontend state
+                    APP_STATE.data = [];
+                    ML_STATE.totalAnomalies = 0;
+                    ML_STATE.recordNumber = 0;
+                    Object.keys(ML_STATE.sensorAnomalyCounts).forEach(key => {
+                        ML_STATE.sensorAnomalyCounts[key] = 0;
+                    });
+
+                    // Restart streaming
+                    if (APP_STATE.streamInterval) clearInterval(APP_STATE.streamInterval);
+                    startLiveStreaming();
+
+                    alert("✅ ML State Reset Successfully\n\nAnomaly counters cleared. Data stream restarted.");
+                } else {
+                    alert("❌ Reset Failed");
+                }
+            } catch (error) {
+                alert(`❌ Error: ${error.message}`);
+            } finally {
+                refreshBtn.innerHTML = originalText;
+                refreshBtn.disabled = false;
+            }
+        };
+    }
+
+    // 3. RE-SYNC UI - Force Refresh
+    const resyncBtn = document.getElementById('btn-resync-ui');
+    if (resyncBtn && !resyncBtn.dataset.bound) {
+        resyncBtn.dataset.bound = "true";
+        resyncBtn.onclick = () => {
+            const originalText = resyncBtn.innerHTML;
+            resyncBtn.innerHTML = "⏳ Syncing...";
+            resyncBtn.disabled = true;
+
+            setTimeout(() => {
+                // Force re-render
+                renderDashboard();
+                updateViewComponents();
+
+                resyncBtn.innerHTML = originalText;
+                resyncBtn.disabled = false;
+                alert("✅ UI Re-Synced\n\nDashboard refreshed with latest data.");
+            }, 500);
         };
     }
 }
@@ -1334,25 +1466,35 @@ function updateEngineerTable(data) {
         // STRICT: ANOMALY COUNT FROM ML STATE
         const count = ML_STATE.sensorAnomalyCounts[key]; // Guaranteed to be defined
 
-        // Determine Status Level (Strict Mapping - Task 3)
-        const sensorState = (data && data.sensor_states) ? data.sensor_states[key] : 'NORMAL';
+        // Determine Status Level based on COUNT (User Requested Thresholds)
         let statusClass = 'text-white';
         let badgeClass = 'status-ok';
         let badgeText = '🟢 NORMAL';
+        let statusLevel = 'NORMAL';
 
         if (APP_STATE.systemState === 'LEARNING') {
             badgeClass = 'status-learning';
             badgeText = '⚪ LEARNING';
             statusClass = 'text-muted';
-        } else if (sensorState === 'ANOMALY') {
+            statusLevel = 'LEARNING';
+        } else if (count > 40) {
             badgeClass = 'status-critical';
             badgeText = '🔴 ANOMALY';
             statusClass = 'text-critical';
+            statusLevel = 'CRITICAL';
+        } else if (count > 30) {
+            badgeClass = 'status-warning';
+            badgeText = '🟡 WARNING';
+            statusClass = 'text-warning';
+            statusLevel = 'WARNING';
         } else {
+            badgeClass = 'status-ok';
+            badgeText = '🟢 NORMAL';
             statusClass = 'text-success';
+            statusLevel = 'NORMAL';
         }
 
-        return { key, actual, meaning: config.meaning, anomalyCount: count, status: sensorState, statusClass, badgeClass, badgeText };
+        return { key, actual, meaning: config.meaning, anomalyCount: count, status: statusLevel, statusClass, badgeClass, badgeText };
     });
 
     // Sort by Anomaly Count Descending

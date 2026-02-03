@@ -19,14 +19,28 @@
 }
 
 @keyframes pulse-ring {
-    0% { transform: scale(0.33); }
-    80%, 100% { opacity: 0; }
+    0% {
+        transform: scale(0.33);
+    }
+
+    80%,
+    100% {
+        opacity: 0;
+    }
 }
 
 @keyframes pulse-dot {
-    0% { transform: scale(0.8); }
-    50% { transform: scale(1); }
-    100% { transform: scale(0.8); }
+    0% {
+        transform: scale(0.8);
+    }
+
+    50% {
+        transform: scale(1);
+    }
+
+    100% {
+        transform: scale(0.8);
+    }
 }
 
 .status-dot {
@@ -176,23 +190,30 @@
 
 /* 5. Executive Statement - Premium Card */
 .executive-summary {
-    background: var(--bg-highlight);
+    background: linear-gradient(135deg, var(--bg-highlight) 0%, rgba(26, 31, 38, 0.8) 100%);
     border: 1px solid rgba(255, 255, 255, 0.05);
-    border-left: 4px solid var(--status-critical);
-    padding: 20px;
-    font-size: 1.1rem;
+    border-left: 5px solid var(--status-critical);
+    padding: 24px;
+    font-size: 1.15rem;
     font-weight: 500;
-    line-height: 1.5;
+    line-height: 1.6;
     color: #fff;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 /* General Card Update */
 .card {
     background-color: var(--bg-highlight);
-    /* Update all cards to lighter color */
-    border: 1px solid rgba(255, 255, 255, 0.03);
-    /* Subtle border */
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+    box-shadow: 0 8px 12px rgba(0, 0, 0, 0.2);
 }
 
 * {
@@ -409,8 +430,15 @@ body {
 
 .grid-dashboard {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 24px;
+    margin-bottom: 24px;
+}
+
+.view-container {
+    max-width: 1600px;
+    margin: 0 auto;
+    width: 100%;
 }
 
 .full-width {
@@ -418,39 +446,125 @@ body {
 }
 
 /* Chart Container Fixes */
-.card {
+.card h3 {
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 1.2px;
     margin-bottom: 20px;
-    font-weight: 600;
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
-/* Table */
+/* Table Refinement */
 .table-wrapper {
     overflow-x: auto;
+    background: rgba(13, 17, 23, 0.4);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin-top: 10px;
 }
 
 th,
 td {
-    padding: 12px 15px;
+    padding: 16px 20px;
     text-align: left;
-    border-bottom: 1px solid var(--bg-highlight);
-    font-size: 0.9rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: 0.95rem;
 }
 
 th {
     color: var(--text-secondary);
-    font-weight: 500;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 1px;
+    background: rgba(255, 255, 255, 0.02);
 }
 
 td {
-    font-family: 'Roboto Mono', monospace;
     color: var(--text-primary);
+    vertical-align: middle;
+    line-height: 1.6;
+    padding-top: 18px;
+    padding-bottom: 18px;
+}
+
+tr:last-child td {
+    border-bottom: none;
+}
+
+tr:hover td {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+/* Badge Styling */
+.badge {
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.status-ok {
+    background: rgba(35, 134, 54, 0.1);
+    color: #3fb950 !important;
+    border: 1px solid rgba(35, 134, 54, 0.2);
+}
+
+.status-learning {
+    background: rgba(88, 166, 255, 0.1);
+    color: #58a6ff !important;
+    border: 1px solid rgba(88, 166, 255, 0.2);
+}
+
+.status-critical {
+    background: rgba(218, 54, 51, 0.1);
+    color: #f85149 !important;
+    border: 1px solid rgba(218, 54, 51, 0.2);
+}
+
+.status-warning {
+    background: rgba(210, 153, 34, 0.1);
+    color: #d29922 !important;
+    border: 1px solid rgba(210, 153, 34, 0.2);
+}
+
+/* Color Utilities */
+.text-critical {
+    color: #f85149 !important;
+}
+
+.text-warning {
+    color: #d29922 !important;
+}
+
+.text-success {
+    color: #3fb950 !important;
+}
+
+.text-blue {
+    color: #58a6ff !important;
+}
+
+.text-muted {
+    color: #8b949e !important;
+}
+
+.text-white {
+    color: #ffffff !important;
 }
 
 /* Specific Widths for Sensor Health Table (Aligned to 5 Columns) */
@@ -818,15 +932,28 @@ td {
 .grid-4 {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
+    gap: 20px;
     width: 100%;
-    /* Ensure full width */
+}
+
+.grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    width: 100%;
 }
 
 .grid-2 {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
+    gap: 20px;
+    width: 100%;
+}
+
+.grid-1 {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
     width: 100%;
 }
 
@@ -836,10 +963,26 @@ td {
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    padding: 15px;
-    min-height: 100px;
-    /* Force minimum height */
     text-align: center;
+    min-height: 150px;
+    border-left: 5px solid #30363d;
+    padding: 20px !important;
+}
+
+.kpi-card.status-red {
+    border-left-color: #f85149 !important;
+}
+
+.kpi-card.status-amber {
+    border-left-color: #d29922 !important;
+}
+
+.kpi-card.status-green {
+    border-left-color: #3fb950 !important;
+}
+
+.kpi-card.status-blue {
+    border-left-color: #58a6ff !important;
 }
 
 .metric-big {
@@ -938,11 +1081,17 @@ td {
     font-size: 0.9rem;
 }
 
-/* Dashboard Grid Consistency */
+/* Dashboard Grid Consistency - Overridden for better desktop layout */
 .grid-dashboard {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+}
+
+@media (max-width: 1200px) {
+    .grid-dashboard {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* Ensure Charts have space */
