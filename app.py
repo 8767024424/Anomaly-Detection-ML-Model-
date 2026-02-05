@@ -343,5 +343,5 @@ if __name__ == "__main__":
     print(f" - GET /api/anomaly-status")
     print(f" - GET /api/anomaly-count")
     print(f" - GET /api/system-health")
-    app.run(host='0.0.0.0', port=5002, debug=False)
+    app.run(host='0.0.0.0', port=5003, debug=False)
 

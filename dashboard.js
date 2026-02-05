@@ -13,6 +13,7 @@ const APP_STATE = {
     lastAnomalyScore: 0,
     systemState: 'LEARNING', // LEARNING | NORMAL | WARNING | CRITICAL
     streamInterval: null,
+    backendOffline: false, // Track backend connection status
 
     // Dataset metadata
     dataset: {
@@ -144,6 +145,28 @@ async function fetchLiveStep() {
         if (!responseData.ok) throw new Error("Data API Offline");
         const data = await responseData.json();
 
+        // Reset error state if connection was restored
+        if (APP_STATE.backendOffline) {
+            APP_STATE.backendOffline = false;
+            console.log("✅ Backend connection restored");
+
+            if (typeof showToast === 'function') {
+                showToast("✅ Backend connection restored", "success");
+            }
+
+            // Update sidebar status
+            const streamStatus = document.getElementById('sidebar-stream-status');
+            const mlStatus = document.getElementById('sidebar-ml-status');
+            if (streamStatus) {
+                streamStatus.textContent = 'Live';
+                streamStatus.className = 'status-ok';
+            }
+            if (mlStatus) {
+                mlStatus.textContent = 'Active';
+                mlStatus.className = 'status-ok';
+            }
+        }
+
         // Handle Completion (dataset finished)
         if (data.status === 'COMPLETED') {
             console.log("🏁 DATASET REPLAY COMPLETED - Stopping at record 2000");
@@ -213,7 +236,39 @@ async function fetchLiveStep() {
         updateViewComponents(displayData);
 
     } catch (error) {
-        console.error("Streaming Error:", error);
+        console.error("❌ Backend Error:", error.message);
+
+        // Stop polling if backend is offline
+        if (APP_STATE.streamInterval) {
+            clearInterval(APP_STATE.streamInterval);
+            APP_STATE.streamInterval = null;
+        }
+
+        // Mark backend as offline (only show message once)
+        if (!APP_STATE.backendOffline) {
+            APP_STATE.backendOffline = true;
+
+            // Show error toast
+            if (typeof showToast === 'function') {
+                showToast("❌ Backend server stopped. Please restart the server.", "error");
+            }
+
+            // Update sidebar status to show offline
+            const streamStatus = document.getElementById('sidebar-stream-status');
+            const mlStatus = document.getElementById('sidebar-ml-status');
+            if (streamStatus) {
+                streamStatus.textContent = 'Offline';
+                streamStatus.className = 'status-critical';
+            }
+            if (mlStatus) {
+                mlStatus.textContent = 'Offline';
+                mlStatus.className = 'status-critical';
+            }
+
+            console.log("🛑 Data streaming stopped - Backend server is offline");
+            console.log("💡 To resume: Restart the backend server and refresh the page (Ctrl+F5)");
+        }
+
         APP_STATE.systemState = "OFFLINE";
         updateViewComponents();
     }
