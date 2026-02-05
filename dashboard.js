@@ -133,9 +133,9 @@ async function startLiveStreaming() {
     // Initial fetch
     await fetchLiveStep();
 
-    // Set interval for continuous updates (50ms for ULTR-TURBO speed)
+    // Set interval for continuous updates (30ms for ultra-fast data loading)
     if (APP_STATE.streamInterval) clearInterval(APP_STATE.streamInterval);
-    APP_STATE.streamInterval = setInterval(fetchLiveStep, 50);
+    APP_STATE.streamInterval = setInterval(fetchLiveStep, 30);
 }
 
 async function fetchLiveStep() {
