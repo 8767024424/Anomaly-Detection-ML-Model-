@@ -535,17 +535,12 @@
                 </div>
             </div>
 
-            <!-- CARD 3: CURRENT SYSTEM ACTIVITY -->
+            <!-- CARD 3: DATASET INFORMATION -->
             <div class="admin-card">
-                <h3>CURRENT SYSTEM ACTIVITY</h3>
-                <div
-                    style="background: #0d1117; padding: 20px; border-radius: 6px; border-left: 3px solid #58a6ff; margin-top: 15px; height: 100%; box-sizing: border-box;">
-                    <ul id="admin-activity-log" class="text-muted small"
-                        style="line-height: 1.8; padding-left: 20px; margin:0;">
-                        <li>Monitoring live data stream for new updates.</li>
-                        <li>Waiting for next scheduled dataset ingestion.</li>
-                        <li>No admin action required at this time.</li>
-                    </ul>
+                <h3>DATASET INFORMATION</h3>
+                <div id="dataset-info-container"
+                    style="margin-top: 15px; display: flex; flex-direction: column; gap: 12px;">
+                    <!-- Populated by JavaScript -->
                 </div>
             </div>
 
@@ -553,13 +548,20 @@
             <div class="admin-card">
                 <h3>ADMIN CONTROLS</h3>
                 <div class="admin-controls-vertical" style="margin-top: 15px;">
-                    <button id="btn-reload-data" class="admin-btn-vertical">
+                    <button id="btn-reload-dataset" class="admin-btn-vertical" onclick="reloadDataset()">
                         <span class="icon">🔄</span>
-                        <span class="text">Reload Data</span>
+                        <span class="text">Reload Dataset</span>
                     </button>
-                    <button id="btn-refresh-ml" class="admin-btn-vertical">
+                    <button id="btn-upload-dataset" class="admin-btn-vertical"
+                        onclick="document.getElementById('dataset-upload-input').click()">
+                        <span class="icon">📤</span>
+                        <span class="text">Upload New Dataset</span>
+                    </button>
+                    <input type="file" id="dataset-upload-input" accept=".csv" style="display: none;"
+                        onchange="uploadNewDataset()">
+                    <button id="btn-reset-counters" class="admin-btn-vertical" onclick="resetCounters()">
                         <span class="icon">🔁</span>
-                        <span class="text">Refresh ML</span>
+                        <span class="text">Reset Counters</span>
                     </button>
                     <button id="btn-resync-ui" class="admin-btn-vertical">
                         <span class="icon">📥</span>

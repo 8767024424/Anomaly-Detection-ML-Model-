@@ -12,7 +12,16 @@ const APP_STATE = {
     isPlaying: true,
     lastAnomalyScore: 0,
     systemState: 'LEARNING', // LEARNING | NORMAL | WARNING | CRITICAL
-    streamInterval: null
+    streamInterval: null,
+
+    // Dataset metadata
+    dataset: {
+        filename: 'Loading...',
+        totalRecords: 0,
+        uploadTime: null,
+        lastProcessedTime: null,
+        currentRecord: 0
+    }
 };
 
 // Configuration for charts
@@ -105,11 +114,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupRoleSwitching();
     // 2. Initialize Chat
     setupChat();
-    // 3. Start Live Streaming (Replacement for loadSensorData)
+    // 3. Fetch dataset info
+    await fetchDatasetInfo();
+    // 4. Start Live Streaming (Replacement for loadSensorData)
     startLiveStreaming();
 
     // Force Render
     renderDashboard();
+
+    // Poll dataset info every 5 seconds
+    setInterval(fetchDatasetInfo, 5000);
 });
 
 async function startLiveStreaming() {
@@ -242,6 +256,217 @@ function updateMLStats(newData) {
         ML_STATE.decision = ML_STATE.failureProbability > 0.6 ? 'APPROVE_MAINTENANCE' : 'MONITORING';
     }
 }
+
+// ------------------------------------------------------------------
+// DATASET MANAGEMENT FUNCTIONS
+// ------------------------------------------------------------------
+
+async function fetchDatasetInfo() {
+    try {
+        const response = await fetch('/api/dataset-info');
+        if (!response.ok) return;
+
+        const info = await response.json();
+        APP_STATE.dataset = {
+            filename: info.filename,
+            totalRecords: info.total_records,
+            uploadTime: info.upload_time,
+            lastProcessedTime: info.last_processed_time,
+            currentRecord: info.current_record
+        };
+
+        // Update dataset info display if visible
+        updateDatasetInfoDisplay();
+    } catch (error) {
+        console.error('Error fetching dataset info:', error);
+    }
+}
+
+async function reloadDataset() {
+    // Confirmation dialog
+    if (!confirm('⚠️ Reload Dataset?\n\nThis will:\n• Reload data from disk\n• Reset ALL anomaly counters to 0\n• Restart ML inference\n\nContinue?')) {
+        return;
+    }
+
+    showLoadingOverlay('Reloading dataset...');
+
+    try {
+        const response = await fetch('/api/admin/reload-dataset', {
+            method: 'POST'
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+            showToast(`✅ Dataset reloaded: ${result.filename} (${result.total_records} records)`, 'success');
+            await fetchDatasetInfo();
+            // Refresh the current view
+            updateViewComponents();
+        } else {
+            showToast(`❌ Reload failed: ${result.error || 'Unknown error'}`, 'error');
+        }
+    } catch (error) {
+        showToast(`❌ Reload error: ${error.message}`, 'error');
+    } finally {
+        hideLoadingOverlay();
+    }
+}
+
+async function uploadNewDataset() {
+    const fileInput = document.getElementById('dataset-upload-input');
+    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+        showToast('❌ Please select a CSV file', 'error');
+        return;
+    }
+
+    const file = fileInput.files[0];
+
+    // Validate file type
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+        showToast('❌ Only CSV files are allowed', 'error');
+        return;
+    }
+
+    // Confirmation dialog
+    if (!confirm(`⚠️ Upload New Dataset?\n\nFile: ${file.name}\nSize: ${(file.size / 1024).toFixed(1)} KB\n\nThis will:\n• Replace current dataset completely\n• Reset ALL anomaly counters to 0\n• Discard all historical data\n• Restart ML inference\n\nContinue?`)) {
+        return;
+    }
+
+    showLoadingOverlay('Uploading and validating dataset...');
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const response = await fetch('/api/admin/upload-data', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+            showToast(`✅ Dataset uploaded: ${result.filename} (${result.total_records} records)`, 'success');
+            await fetchDatasetInfo();
+            // Clear file input
+            fileInput.value = '';
+            // Refresh the current view
+            updateViewComponents();
+        } else {
+            showToast(`❌ Upload failed: ${result.error || 'Unknown error'}`, 'error');
+        }
+    } catch (error) {
+        showToast(`❌ Upload error: ${error.message}`, 'error');
+    } finally {
+        hideLoadingOverlay();
+    }
+}
+
+function updateDatasetInfoDisplay() {
+    const container = document.getElementById('dataset-info-container');
+    if (!container) return;
+
+    const uploadDate = APP_STATE.dataset.uploadTime ?
+        new Date(APP_STATE.dataset.uploadTime).toLocaleString() : 'N/A';
+
+    const lastProcessed = APP_STATE.dataset.lastProcessedTime ?
+        new Date(APP_STATE.dataset.lastProcessedTime).toLocaleString() : 'Not started';
+
+    container.innerHTML = `
+        <div class="dataset-info-item">
+            <span class="label">📁 File:</span>
+            <span class="value">${APP_STATE.dataset.filename}</span>
+        </div>
+        <div class="dataset-info-item">
+            <span class="label">📊 Records:</span>
+            <span class="value">${APP_STATE.dataset.currentRecord} / ${APP_STATE.dataset.totalRecords}</span>
+        </div>
+        <div class="dataset-info-item">
+            <span class="label">📅 Uploaded:</span>
+            <span class="value">${uploadDate}</span>
+        </div>
+        <div class="dataset-info-item">
+            <span class="label">⏱️ Last Processed:</span>
+            <span class="value">${lastProcessed}</span>
+        </div>
+    `;
+}
+
+function showLoadingOverlay(message = 'Loading...') {
+    let overlay = document.getElementById('loading-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'loading-overlay';
+        overlay.innerHTML = `
+            <div class="loading-spinner"></div>
+            <div class="loading-message">${message}</div>
+        `;
+        document.body.appendChild(overlay);
+    } else {
+        overlay.querySelector('.loading-message').textContent = message;
+        overlay.style.display = 'flex';
+    }
+}
+
+function hideLoadingOverlay() {
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
+}
+
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    // Trigger animation
+    setTimeout(() => toast.classList.add('show'), 10);
+
+    // Remove after 4 seconds
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
+}
+
+async function resetCounters() {
+    if (!confirm('⚠️ Reset Anomaly Counters?\n\nThis will reset all anomaly counts to 0.\n\nContinue?')) {
+        return;
+    }
+
+    showLoadingOverlay('Resetting counters...');
+
+    try {
+        const response = await fetch('/api/admin/reset-counters', {
+            method: 'POST'
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+            showToast('✅ Counters reset successfully', 'success');
+            await fetchDatasetInfo();
+            updateViewComponents();
+        } else {
+            showToast('❌ Reset failed', 'error');
+        }
+    } catch (error) {
+        showToast(`❌ Error: ${error.message}`, 'error');
+    } finally {
+        hideLoadingOverlay();
+    }
+}
+
+
+// ------------------------------------------------------------------
+// MAKE FUNCTIONS GLOBALLY ACCESSIBLE FOR INLINE ONCLICK HANDLERS
+// ------------------------------------------------------------------
+window.reloadDataset = reloadDataset;
+window.uploadNewDataset = uploadNewDataset;
+window.resetCounters = resetCounters;
+window.fetchDatasetInfo = fetchDatasetInfo;
 
 function setupRoleSwitching() {
     const btns = document.querySelectorAll('.role-btn');

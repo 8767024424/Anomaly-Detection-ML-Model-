@@ -73,10 +73,18 @@ class AnomalyInferenceEngine:
             print(f"Warning: Could not load assets ({e}). Falling back to simulation logic.")
     
     def reset_state(self):
-        """Reset the inference state when looping the dataset."""
-        print("[RESET] Resetting inference engine state for new loop...")
+        """Reset the inference state when loading a new dataset."""
+        print("[RESET] Resetting inference engine state for new dataset...")
         self.buffer.clear()
         self.previous_sensor_states = {f: "NORMAL" for f in FEATURES}
+        
+        # Reset all anomaly counters
+        self.anomaly_count_total = 0
+        self.anomaly_count_last_hour = 0
+        self.anomaly_timestamps = []
+        self.sensor_anomaly_counts = {f: 0 for f in FEATURES}
+        
+        print("[RESET] All anomaly counters reset to 0")
 
 
 

@@ -36,6 +36,16 @@ df = pd.read_csv(DATA_FILE)
 DATA_RECORDS = df.to_dict('records')
 CURRENT_RECORD_INDEX = 0
 
+# --- Dataset Metadata ---
+DATASET_METADATA = {
+    "filename": os.path.basename(DATA_FILE),
+    "filepath": DATA_FILE,
+    "total_records": len(DATA_RECORDS),
+    "upload_time": datetime.now().isoformat(),
+    "last_processed_time": None,
+    "columns": list(df.columns) if len(df) > 0 else []
+}
+
 # --- State Store ---
 # Holds the last processed result for decoupled API access
 LATEST_INFERENCE_RESULT = {
@@ -65,15 +75,41 @@ def get_next_sensor_reading():
 
 def reload_data_from_file(filepath):
     """Reload data from a new CSV file and reset all state."""
-    global DATA_FILE, df, DATA_RECORDS, CURRENT_RECORD_INDEX, LATEST_INFERENCE_RESULT
+    global DATA_FILE, df, DATA_RECORDS, CURRENT_RECORD_INDEX, LATEST_INFERENCE_RESULT, DATASET_METADATA
     
     print(f"[RELOAD] Reloading data from {filepath}...")
+    
+    # Validate file exists
+    if not os.path.exists(filepath):
+        raise FileNotFoundError(f"File not found: {filepath}")
     
     # Load new dataset
     DATA_FILE = filepath
     df = pd.read_csv(DATA_FILE)
+    
+    # Validate required columns
+    required_columns = [
+        'Motor_RPM', 'Bearing_Temperature_C', 'Oil_Pressure_bar', 'Vibration_mm_s',
+        'Flow_Rate_L_min', 'Suction_Pressure_bar', 'Discharge_Pressure_bar',
+        'Motor_Current_A', 'Casing_Temperature_C', 'Ambient_Temperature_C'
+    ]
+    
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        raise ValueError(f"Missing required columns: {', '.join(missing_columns)}")
+    
     DATA_RECORDS = df.to_dict('records')
     CURRENT_RECORD_INDEX = 0
+    
+    # Update metadata
+    DATASET_METADATA = {
+        "filename": os.path.basename(filepath),
+        "filepath": filepath,
+        "total_records": len(DATA_RECORDS),
+        "upload_time": datetime.now().isoformat(),
+        "last_processed_time": None,
+        "columns": list(df.columns)
+    }
     
     # Reset ML state
     LATEST_INFERENCE_RESULT = {
@@ -144,6 +180,9 @@ def get_live_data():
         **inference_out
     }
     
+    # Update last processed time
+    DATASET_METADATA["last_processed_time"] = datetime.now().isoformat()
+    
     return jsonify({
         "timestamp": timestamp,
         "record_number": CURRENT_RECORD_INDEX,
@@ -185,6 +224,39 @@ def get_system_health():
         "model_status": "LOADED" if engine.model else "SIMULATED"
     })
 
+@app.route('/api/dataset-info', methods=['GET'])
+def get_dataset_info():
+    """Get current dataset metadata."""
+    return jsonify({
+        "filename": DATASET_METADATA["filename"],
+        "total_records": DATASET_METADATA["total_records"],
+        "upload_time": DATASET_METADATA["upload_time"],
+        "last_processed_time": DATASET_METADATA["last_processed_time"],
+        "current_record": CURRENT_RECORD_INDEX,
+        "columns": DATASET_METADATA["columns"]
+    })
+
+@app.route('/api/admin/reload-dataset', methods=['POST'])
+def reload_dataset():
+    """Admin endpoint to reload the current dataset from disk."""
+    try:
+        global DATASET_METADATA
+        
+        # Reload from current file path
+        filepath = DATASET_METADATA["filepath"]
+        total_records = reload_data_from_file(filepath)
+        
+        return jsonify({
+            "success": True,
+            "message": "Dataset reloaded successfully",
+            "filename": DATASET_METADATA["filename"],
+            "total_records": total_records
+        }), 200
+        
+    except Exception as e:
+        print(f"[ERROR] Reload error: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/api/admin/upload-data', methods=['POST'])
 def upload_data():
     """Admin endpoint to upload and reload a new CSV dataset."""
@@ -211,12 +283,18 @@ def upload_data():
         file.save(filepath)
         print(f"[UPLOAD] File saved: {filepath}")
         
-        # Reload data into memory
-        total_records = reload_data_from_file(filepath)
+        # Reload data into memory (includes column validation)
+        try:
+            total_records = reload_data_from_file(filepath)
+        except ValueError as ve:
+            # Column validation failed - delete uploaded file
+            if os.path.exists(filepath):
+                os.remove(filepath)
+            return jsonify({"error": str(ve)}), 400
         
         return jsonify({
             "success": True,
-            "message": f"Data reloaded successfully",
+            "message": "Dataset uploaded and loaded successfully",
             "filename": filename,
             "total_records": total_records,
             "filepath": filepath
