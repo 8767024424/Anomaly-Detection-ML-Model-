@@ -1620,139 +1620,121 @@ function updateAdminView(data) {
 }
 
 function setupAdminControls() {
-    // 1. RELOAD DATA - File Upload
-    const reloadBtn = document.getElementById('btn-reload-data');
-    if (reloadBtn && !reloadBtn.dataset.bound) {
-        reloadBtn.dataset.bound = "true";
-        reloadBtn.onclick = () => {
-            // Create hidden file input
-            const fileInput = document.createElement('input');
-            fileInput.type = 'file';
-            fileInput.accept = '.csv';
-            fileInput.style.display = 'none';
-
-            fileInput.onchange = async (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-
-                // Validate file type
-                if (!file.name.endsWith('.csv')) {
-                    alert('❌ Error: Please select a CSV file');
-                    return;
-                }
-
-                // Show loading state
-                const originalText = reloadBtn.innerHTML;
-                reloadBtn.innerHTML = "⏳ Uploading...";
-                reloadBtn.disabled = true;
-
-                try {
-                    // Create FormData
-                    const formData = new FormData();
-                    formData.append('file', file);
-
-                    // Upload file
-                    const response = await fetch('/api/admin/upload-data', {
-                        method: 'POST',
-                        body: formData
-                    });
-
-                    const result = await response.json();
-
-                    if (response.ok && result.success) {
-                        alert(`✅ Data Reloaded Successfully!\n\nFile: ${result.filename}\nRecords: ${result.total_records}\n\nThe dashboard will now restart with the new data.`);
-
-                        // Reset frontend state
-                        APP_STATE.data = [];
-                        APP_STATE.systemState = 'LEARNING';
-                        ML_STATE.totalAnomalies = 0;
-                        ML_STATE.recordNumber = 0;
-                        ML_STATE.totalRecords = result.total_records;
-
-                        // Restart streaming
-                        if (APP_STATE.streamInterval) clearInterval(APP_STATE.streamInterval);
-                        startLiveStreaming();
-
-                        // Refresh view
-                        renderDashboard();
-                    } else {
-                        alert(`❌ Upload Failed\n\n${result.error || 'Unknown error'}`);
-                    }
-                } catch (error) {
-                    alert(`❌ Upload Error\n\n${error.message}`);
-                } finally {
-                    reloadBtn.innerHTML = originalText;
-                    reloadBtn.disabled = false;
-                    document.body.removeChild(fileInput);
-                }
-            };
-
-            // Trigger file selector
-            document.body.appendChild(fileInput);
-            fileInput.click();
-        };
-    }
-
-    // 2. REFRESH ML - Reset Counters
-    const refreshBtn = document.getElementById('btn-refresh-ml');
-    if (refreshBtn && !refreshBtn.dataset.bound) {
-        refreshBtn.dataset.bound = "true";
-        refreshBtn.onclick = async () => {
-            const originalText = refreshBtn.innerHTML;
-            refreshBtn.innerHTML = "⏳ Resetting...";
-            refreshBtn.disabled = true;
-
-            try {
-                const response = await fetch('/api/admin/reset-counters', { method: 'POST' });
-                const result = await response.json();
-
-                if (response.ok && result.success) {
-                    // Reset frontend state
-                    APP_STATE.data = [];
-                    ML_STATE.totalAnomalies = 0;
-                    ML_STATE.recordNumber = 0;
-                    Object.keys(ML_STATE.sensorAnomalyCounts).forEach(key => {
-                        ML_STATE.sensorAnomalyCounts[key] = 0;
-                    });
-
-                    // Restart streaming
-                    if (APP_STATE.streamInterval) clearInterval(APP_STATE.streamInterval);
-                    startLiveStreaming();
-
-                    alert("✅ ML State Reset Successfully\n\nAnomaly counters cleared. Data stream restarted.");
-                } else {
-                    alert("❌ Reset Failed");
-                }
-            } catch (error) {
-                alert(`❌ Error: ${error.message}`);
-            } finally {
-                refreshBtn.innerHTML = originalText;
-                refreshBtn.disabled = false;
-            }
-        };
-    }
-
-    // 3. RE-SYNC UI - Force Refresh
-    const resyncBtn = document.getElementById('btn-resync-ui');
-    if (resyncBtn && !resyncBtn.dataset.bound) {
-        resyncBtn.dataset.bound = "true";
-        resyncBtn.onclick = () => {
-            const originalText = resyncBtn.innerHTML;
-            resyncBtn.innerHTML = "⏳ Syncing...";
-            resyncBtn.disabled = true;
-
-            setTimeout(() => {
-                // Force re-render
-                renderDashboard();
-                updateViewComponents();
-
-                resyncBtn.innerHTML = originalText;
-                resyncBtn.disabled = false;
-                alert("✅ UI Re-Synced\n\nDashboard refreshed with latest data.");
-            }, 500);
-        };
-    }
+    // Buttons are already bound in HTML via onclick
+    console.log("Admin decision controls active.");
 }
+
+/**
+ * EXPORT SESSION REPORT
+ * Generates technical summary for audits and shift handovers
+ */
+function exportSessionReport() {
+    const reliability = (ML_STATE.totalAnomalies === 0) ? 100 : Math.max(0, 100 - (ML_STATE.totalAnomalies / 20)).toFixed(2);
+    const timestamp = new Date().toLocaleString();
+
+    let report = `INDUSTRIAL PUMP RELIABILITY REPORT\n`;
+    report += `====================================\n`;
+    report += `Timestamp: ${timestamp}\n`;
+    report += `Dataset: ${APP_STATE.dataset.filename}\n`;
+    report += `Records Processed: ${ML_STATE.recordNumber} / ${ML_STATE.totalRecords}\n`;
+    report += `Overall Reliability: ${reliability}%\n`;
+    report += `Total Anomalies: ${ML_STATE.totalAnomalies}\n`;
+    report += `\nSENSOR BREAKDOWN (DETAILED):\n`;
+
+    Object.entries(ML_STATE.sensorAnomalyCounts).forEach(([sensor, count]) => {
+        const status = count > 40 ? "CRITICAL" : (count > 0 ? "WARNING" : "NORMAL");
+        report += `- ${sensor}: ${count} faults (${status})\n`;
+    });
+
+    report += `\n====================================\n`;
+    report += `End of Report\n`;
+
+    const blob = new Blob([report], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Pump_Reliability_Report_${new Date().getTime()}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+
+    showToast("📄 Reliability report exported successfully.", "success");
+}
+
+/**
+ * VIEW RELIABILITY SUMMARY
+ * Opens a modal with a high-level health overview
+ */
+function viewReliabilitySummary() {
+    const reliability = (ML_STATE.totalAnomalies === 0) ? 100 : Math.max(0, 100 - (ML_STATE.totalAnomalies / 20)).toFixed(2);
+    const modal = document.getElementById('admin-modal');
+    const title = document.getElementById('modal-title');
+    const body = document.getElementById('modal-body');
+
+    title.innerText = "📊 MACHINE RELIABILITY SUMMARY";
+
+    body.innerHTML = `
+        <div class="summary-grid">
+            <div class="summary-stat-card">
+                <span class="label">Reliability Score</span>
+                <span class="value" style="color: ${reliability > 90 ? '#3fb950' : '#d29922'}">${reliability}%</span>
+            </div>
+            <div class="summary-stat-card">
+                <span class="label">Total Faults</span>
+                <span class="value">${ML_STATE.totalAnomalies}</span>
+            </div>
+        </div>
+        <p class="text-secondary" style="font-size: 0.9rem; line-height: 1.5;">
+            Based on ${ML_STATE.recordNumber} processed data points. 
+            The current system health indicates <strong>${reliability > 90 ? 'High' : 'Reduced'}</strong> operational stability. 
+            Maintenance is ${reliability < 85 ? 'HIGHLY RECOMMENDED' : 'proceeding naturally'}.
+        </p>
+    `;
+
+    modal.style.display = 'flex';
+}
+
+/**
+ * VIEW ANOMALY DETAILS
+ * Analytical drill-down into sensor-level faults
+ */
+function viewAnomalyDetails() {
+    const modal = document.getElementById('admin-modal');
+    const title = document.getElementById('modal-title');
+    const body = document.getElementById('modal-body');
+
+    title.innerText = "🔍 ANOMALY ANALYTICS";
+
+    let sensorHtml = Object.entries(ML_STATE.sensorAnomalyCounts)
+        .sort((a, b) => b[1] - a[1])
+        .filter(([_, count]) => count > 0)
+        .map(([name, count]) => {
+            const severity = count > 40 ? 'critical' : 'warning';
+            return `
+                <div class="anomaly-list-item ${severity}">
+                    <span class="sensor-name">${name.replace(/_/g, ' ')}</span>
+                    <span class="fault-count">${count} Faults</span>
+                </div>
+            `;
+        }).join('');
+
+    body.innerHTML = `
+        <div style="margin-bottom: 15px;">
+            <p class="text-muted" style="font-size: 0.85rem;">Cumulative fault counts for active machines:</p>
+        </div>
+        <div class="anomaly-detail-list">
+            ${sensorHtml || '<p class="text-success" style="padding: 20px; text-align: center;">✅ No anomalies detected in current session.</p>'}
+        </div>
+    `;
+
+    modal.style.display = 'flex';
+}
+
+function closeAdminModal() {
+    document.getElementById('admin-modal').style.display = 'none';
+}
+
 
 function setupAdminButton(id, successText, logText) {
     const btn = document.getElementById(id);
