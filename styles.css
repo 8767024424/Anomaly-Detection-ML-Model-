@@ -639,47 +639,106 @@ tr:hover td {
     border: 1px solid transparent;
 }
 
-.alert-card.critical {
-    background: rgba(218, 54, 51, 0.15);
-    border-color: var(--status-critical);
+/* Action-Oriented Risk Console Styling */
+.risk-action-card {
+    background: var(--bg-highlight);
+    border-radius: 10px;
+    border: 1px solid #30363d;
+    padding: 20px;
+    margin-bottom: 16px;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
 }
 
-.alert-card.warning {
-    background: rgba(210, 153, 34, 0.15);
-    border-color: var(--status-warning);
+.risk-action-header {
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: flex-start;
 }
 
-.alert-card h4 {
-    margin-right: 15px;
-    color: #fff;
-    font-weight: bold;
-}
-
-.alert-card p {
-    flex: 1;
-    color: rgba(255, 255, 255, 0.9);
-}
-
-.alert-actions button {
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    color: #fff;
-    padding: 5px 12px;
+.severity-badge {
+    font-size: 0.7rem;
+    font-weight: 800;
+    padding: 4px 10px;
     border-radius: 4px;
-    cursor: pointer;
-    margin-left: 10px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-secondary);
 }
 
-.alert-actions button:hover {
-    background: rgba(255, 255, 255, 0.2);
+.risk-action-body h3 {
+    font-size: 1.25rem;
+    margin-bottom: 10px;
+    color: #fff;
+    font-weight: 700;
 }
 
-/* ============================= */
-/* Global Variables */
-/* ============================= */
-:root {
-    --copilot-width: 320px;
-    /* 🔹 Change this anytime */
+.action-instruction {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 20px;
+}
+
+.action-footer {
+    padding-top: 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.action-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+
+.action-value {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+/* Severity-Based Glows & Overrides */
+.risk-action-card.ok {
+    border-left: 4px solid var(--status-ok);
+    background: linear-gradient(135deg, rgba(35, 134, 54, 0.05) 0%, rgba(13, 17, 23, 1) 100%);
+}
+
+.risk-action-card.warning {
+    border-left: 4px solid var(--status-warning);
+    background: linear-gradient(135deg, rgba(210, 153, 34, 0.05) 0%, rgba(13, 17, 23, 1) 100%);
+}
+
+.risk-action-card.warning-high {
+    border-left: 4px solid #f0883e;
+    background: linear-gradient(135deg, rgba(240, 136, 62, 0.08) 0%, rgba(13, 17, 23, 1) 100%);
+}
+
+.risk-action-card.critical {
+    border-left: 4px solid var(--status-critical);
+    background: linear-gradient(135deg, rgba(218, 54, 51, 0.1) 0%, rgba(13, 17, 23, 1) 100%);
+    animation: critical-border-pulse 2s infinite;
+}
+
+@keyframes critical-border-pulse {
+    0% {
+        filter: drop-shadow(0 0 5px rgba(218, 54, 51, 0.2));
+    }
+
+    50% {
+        filter: drop-shadow(0 0 15px rgba(218, 54, 51, 0.4));
+    }
+
+    100% {
+        filter: drop-shadow(0 0 5px rgba(218, 54, 51, 0.2));
+    }
 }
 
 /* ============================= */

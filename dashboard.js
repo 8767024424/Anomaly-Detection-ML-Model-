@@ -88,6 +88,47 @@ const ML_STATE = {
     decision: 'MONITOR'
 };
 
+// ------------------------------------------------------------------
+// RISK ACTION MANAGER (Actionable Severity Mapping & Stability)
+// ------------------------------------------------------------------
+const RISK_ACTION_MANAGER = {
+    state: 'SAFE', // SAFE | LOW | MEDIUM | HIGH
+    holdCounter: 0,
+    holdDuration: 40,
+
+    update(newData) {
+        const score = APP_STATE.lastAnomalyScore || 0;
+
+        // Reliability Sync: Count critical and warning sensors from cumulative state
+        const criticalCount = Object.values(ML_STATE.sensorAnomalyCounts).filter(c => c > 40).length;
+        const warningCount = Object.values(ML_STATE.sensorAnomalyCounts).filter(c => c > 30).length;
+
+        let targetState = 'SAFE';
+
+        // Synchronized Thresholds (Higher of Score or Critical Count)
+        if (score >= 0.8 || criticalCount >= 5) targetState = 'HIGH';
+        else if (score >= 0.6 || criticalCount >= 1) targetState = 'MEDIUM';
+        else if (score >= 0.3 || warningCount >= 1) targetState = 'LOW';
+
+        // State Priority / Upshift Logic: Immediate response to rising risk
+        const statePriority = { 'SAFE': 0, 'LOW': 1, 'MEDIUM': 2, 'HIGH': 3 };
+        if (statePriority[targetState] > statePriority[this.state]) {
+            this.state = targetState;
+            this.holdCounter = this.holdDuration;
+        } else if (statePriority[targetState] < statePriority[this.state]) {
+            // Downshift Logic: Hold state to prevent flickering
+            if (this.holdCounter > 0) {
+                this.holdCounter--;
+            } else {
+                this.state = targetState;
+            }
+        } else {
+            // Keep counter refreshed while at current level
+            if (this.state !== 'SAFE') this.holdCounter = this.holdDuration;
+        }
+    }
+};
+
 // Role-based Chat Prompts
 const ROLE_PROMPTS = {
     'plant-engineer': [
@@ -310,6 +351,9 @@ function updateMLStats(newData) {
         ML_STATE.maintenanceCost = 25000; // Fixed Repair Cost
         ML_STATE.decision = ML_STATE.failureProbability > 0.6 ? 'APPROVE_MAINTENANCE' : 'MONITORING';
     }
+
+    // Update Action Manager
+    RISK_ACTION_MANAGER.update(newData);
 }
 
 // ------------------------------------------------------------------
@@ -434,7 +478,7 @@ function updateDatasetInfoDisplay() {
         </div>
         <div class="dataset-info-item">
             <span class="label">📊 Records:</span>
-            <span class="value">${APP_STATE.dataset.currentRecord} / ${APP_STATE.dataset.totalRecords}</span>
+            <span class="value">${ML_STATE.recordNumber} / ${ML_STATE.totalRecords}</span>
         </div>
         <div class="dataset-info-item">
             <span class="label">📅 Uploaded:</span>
@@ -965,21 +1009,48 @@ function updateEngineerAlerts(data) {
         return;
     }
 
-    if (APP_STATE.systemState === 'NORMAL') {
-        alertPanel.innerHTML = '<div class="alert-card ok"><p>✅ System Stable. No active anomalies.</p></div>';
-        return;
-    }
+    const state = RISK_ACTION_MANAGER.state;
+    const mappings = {
+        'SAFE': {
+            title: "✅ System Stable",
+            action: "Regular Monitoring",
+            desc: "No active anomalies. Proceed with routine observations.",
+            class: "ok"
+        },
+        'LOW': {
+            title: "🟠 Monitor Operating Conditions",
+            action: "Observe Behavior",
+            desc: "Slight deviation detected. Monitor noise or vibration trends closely.",
+            class: "warning"
+        },
+        'MEDIUM': {
+            title: "🔍 Inspect Affected Sensors",
+            action: "Review Parameters",
+            desc: "Review vibration, pressure, temperature, or related parameters immediately.",
+            class: "warning-high"
+        },
+        'HIGH': {
+            title: "🔴 Immediate Inspection Required",
+            action: "Physical Inspection",
+            desc: "Potential equipment risk. Prompt physical inspection recommended.",
+            class: "critical"
+        }
+    };
 
-    let html = '';
-    const statusColor = APP_STATE.systemState === 'CRITICAL' ? 'critical' : 'warning';
-    const statusTitle = APP_STATE.systemState.toUpperCase();
+    const config = mappings[state];
 
-    html += `
-        <div class="alert-card ${statusColor}">
-            <h4>${statusTitle} ALERT</h4>
-            <p>ML Inference detected <strong>${APP_STATE.systemState}</strong> state (Score: ${APP_STATE.lastAnomalyScore.toFixed(4)}).</p>
-            <div class="alert-actions">
-                <button>Acknowledge</button>
+    let html = `
+        <div class="risk-action-card ${config.class}">
+            <div class="risk-action-header">
+                <span class="severity-badge">${state} SEVERITY</span>
+            </div>
+            <div class="risk-action-body">
+                <h3>${config.title}</h3>
+                <p class="action-instruction">${config.desc}</p>
+                <div class="action-footer">
+                    <span class="action-label">REQUIRED ACTION:</span>
+                    <span class="action-value">${config.action}</span>
+                </div>
             </div>
         </div>
     `;
@@ -1543,6 +1614,9 @@ function updateAdminView(data) {
 
     // 5. Bind Admin Actions
     setupAdminControls();
+
+    // 6. Immediate Dataset Info Sync
+    updateDatasetInfoDisplay();
 }
 
 function setupAdminControls() {
