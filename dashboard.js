@@ -1399,7 +1399,7 @@ function updateManagementView(data) {
                     const currentCost = ML_STATE.maintenanceCost || 0;
                     const roi = ((currentRisk - currentCost) / 100000).toFixed(2);
 
-                    alert(`✅ Successfully sent the request for Maintenance Approval! \n\nWork order created for next scheduled shutdown. Expected ROI: ₹${roi} Lakhs.`);
+                    alert(`✅ Successfully sent the request for Maintenance Approval!`);
                 }, 1200);
             });
         }
